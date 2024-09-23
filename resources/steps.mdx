@@ -1,0 +1,151 @@
+
+### Description of the **"Steps"** Resource
+
+#### Purpose
+The **Steps** resource defines individual actions or tasks that a Copilotz agent must perform as part of a workflow. Each step represents a discrete unit of work, such as collecting user input, making an API call, or performing a decision. Steps are the building blocks of workflows and guide agents through tasks in a sequential manner, with flexibility to handle success or failure scenarios.
+
+#### Resource Overview
+A **Step** is a single task within a workflow. Each step provides detailed instructions to the Copilotz agent on how to perform the task, what conditions need to be met to move to the next step, and how to handle success or failure. Steps can also be configured to trigger specific actions via the `onSubmit` property, enabling agents to execute actions (e.g., API requests or function calls) as part of the workflow.
+
+#### Key Concepts
+- **Step Name:** A unique identifier for the step, clearly defining its purpose within the workflow.
+- **Description:** A brief overview of what the step accomplishes.
+- **Instructions:** Detailed guidance for the Copilotz agent on how to execute the step, such as what to ask the user or what action to perform.
+- **Submit When:** Criteria that define when the step is considered complete, allowing the workflow to proceed.
+- **On Submit:** An action that is triggered when the step is completed. This action can be an API request or any other predefined action.
+- **Next Step:** The ID of the next step to move to when the current step is successfully completed.
+- **Failed Next Step:** The ID of the step to proceed to if the step fails, allowing for error handling or alternative paths in the workflow.
+
+---
+
+#### Example
+
+A sample **Step** that collects user information and calls an API action upon submission might look like this:
+
+```yaml
+{
+"name": "Collect User Information",
+"description": "Asks the user for their name and email address.",
+"instructions": "Please provide your name and email to proceed with registration.",
+"submitWhen": "The user provides both a valid name and email address.",
+"onSubmit": 1,  // Action ID for calling an API after submission
+"next": 2,      // ID of the next step if successful
+"failedNext": 3 // ID of the step to go to if submission fails
+}
+```
+
+---
+
+#### Fields
+
+- **name** (string) – The name of the step, which should clearly describe what the step does.
+- **description** (string) – A brief explanation of the task or action this step represents within the workflow.
+- **instructions** (string) – Detailed guidance for the Copilotz agent on how to perform the step. This could include what to ask the user, how to handle their response, or what external API to call.
+- **submitWhen** (string) – A condition or criteria that defines when this step should be considered complete. For example, the step might be marked as complete when the user provides a valid input or when a certain API response is received.
+- **onSubmit** (integer, optional) – The ID of an action that is triggered when the step is completed. This action will be called with the arguments provided during submission. For example, this could be an API request to register a user.
+- **next** (integer) – The ID of the next step in the workflow, which the agent will move to after completing the current step successfully.
+- **failedNext** (integer, optional) – The ID of the next step to proceed to if the submission fails. This enables workflows to handle errors or retry logic in case of failure.
+- **job** (integer, optional) – The job ID or workflow that this step is associated with. This allows steps to be reused across different workflows if necessary.
+
+---
+
+#### Behavior
+
+- **Step Execution:** Steps are executed sequentially within a workflow. When a step is completed, the workflow moves to the next step specified by the `next` field. If an error occurs during the execution, the workflow can move to the `failedNext` step.
+
+- **On Submit Action:** The **onSubmit** field allows you to trigger an action after the step is completed. This can be used for API requests, database updates, or any other predefined action in the system. The arguments passed during submission will be sent to the action for execution.
+
+- **Chaining Steps with Success and Failure Handling:** Each step can have a **next** step for successful completion and a **failedNext** step for handling failures. This enables workflows to account for different outcomes and allows agents to follow alternate paths based on success or failure.
+
+---
+
+#### Usage
+
+- **Creating Steps:** Steps are created via the `/rest/steps` endpoint. After creating the steps, associate them with a workflow by adding their step IDs to the workflow's configuration.
+
+- **On Submit Logic:** Use the **onSubmit** field to define actions that should be executed when the step is completed. For example, after collecting user input, the agent can trigger an API call to register the user or update a database.
+
+- **Handling Failures with FailedNext:** If a step fails (e.g., the user provides invalid input or an API call fails), the agent will move to the step defined by the **failedNext** field. This allows you to handle retries, provide alternative instructions, or escalate the workflow.
+
+---
+
+#### Example of Step Execution with Error Handling
+
+Here’s an example workflow that uses the **onSubmit** and **failedNext** properties to handle both success and failure cases:
+
+1. **Step 1: Collect User Name**
+- **Instructions:** "Please enter your name."
+- **Submit When:** "The user provides a valid name."
+- **On Submit:** Calls an action to validate the name via an API.
+- **Next:** Proceed to Step 2 if validation succeeds.
+- **Failed Next:** Move to Step 3 to handle errors if validation fails.
+
+2. **Step 2: Collect Email Address**
+- **Instructions:** "Please enter your email address."
+- **Submit When:** "The user provides a valid email."
+- **On Submit:** Calls an action to register the user via an API.
+- **Next:** Proceed to Step 4 to confirm registration.
+
+3. **Step 3: Error Handling**
+- **Instructions:** "The provided name is invalid. Please try again."
+- **Next:** Return to Step 1 to retry.
+
+4. **Step 4: Confirm Registration**
+- **Instructions:** "Your registration is complete. Thank you!"
+- **Submit When:** "The user confirms."
+
+---
+
+#### Example of Creating a Step with OnSubmit and FailedNext
+
+```javascript
+const createStep = async (accessToken, stepData) => {
+const response = await fetch(`https://copilotz.com/rest/steps`, {
+method: "POST",
+headers: {
+"Content-Type": "application/json",
+Authorization: `Bearer ${accessToken}`,
+},
+body: JSON.stringify(stepData),
+});
+
+if (response.ok) {
+const createdStep = await response.json();
+console.log("Step created successfully:", createdStep);
+} else {
+const error = await response.json();
+console.error("Failed to create step:", error.error.message);
+}
+};
+
+// Example step data
+const stepData = {
+name: "Collect User Name",
+description: "Asks the user to provide their name.",
+instructions: "Please enter your name to proceed.",
+submitWhen: "The user provides a valid name.",
+onSubmit: 1,  // Action ID to be called on submission
+next: 2,      // Move to the next step after successful completion
+failedNext: 3 // Move to a different step if the submission fails
+};
+
+createStep("your_access_token", stepData);
+```
+
+---
+
+#### Key Use Cases
+
+- **Form Submission with Validation:** You can use **onSubmit** to trigger an API request after collecting data from the user. If the API returns an error, the **failedNext** property can guide the workflow to retry or provide error handling instructions.
+
+- **Decision Making in Workflows:** By using both **next** and **failedNext**, you can design workflows that take different paths based on whether a task succeeds or fails. This enables robust error handling and ensures that workflows are flexible enough to handle various outcomes.
+
+---
+
+#### Best Practices
+
+- **Use OnSubmit for External Calls:** Trigger API requests or function calls when important actions are completed, like submitting a form or processing user input.
+
+- **Clear Failure Paths:** Always define **failedNext** steps for error handling. This ensures that the workflow can gracefully handle failures, whether from user input or external system errors.
+
+- **Validate and Retry:** Use the **failedNext** property to implement retry logic. If a user provides invalid input, you can direct the workflow back to the step where the error occurred.

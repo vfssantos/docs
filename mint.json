@@ -1,18 +1,18 @@
 {
   "$schema": "https://mintlify.com/schema.json",
-  "name": "Starter Kit",
+  "name": "COPILOTZ",
   "logo": {
     "dark": "/logo/dark.svg",
     "light": "/logo/light.svg"
   },
   "favicon": "/favicon.svg",
   "colors": {
-    "primary": "#0D9373",
-    "light": "#07C983",
+    "primary": "#66cc8a",
+    "light": "#377cfb",
     "dark": "#0D9373",
     "anchors": {
-      "from": "#0D9373",
-      "to": "#07C983"
+      "from": "#66cc8a",
+      "to": "#377cfb"
     }
   },
   "topbarLinks": [
@@ -28,6 +28,7 @@
   "tabs": [
     {
       "name": "API Reference",
+      "openapi": "/api-reference/openapi.yaml",
       "url": "api-reference"
     }
   ],
@@ -58,28 +59,26 @@
       ]
     },
     {
-      "group": "Essentials",
+      "group":"Authentication",
       "pages": [
-        "essentials/markdown",
-        "essentials/code",
-        "essentials/images",
-        "essentials/settings",
-        "essentials/navigation",
-        "essentials/reusable-snippets"
+        "authentication/accessToken"
+      ]
+    },
+    {
+      "group":"Resources",
+      "pages": [
+        "resources/actions",
+        "resources/copilotz",
+        "resources/channels",
+        "resources/workflows",
+        "resources/steps",
+        "resources/tasks"
       ]
     },
     {
       "group": "API Documentation",
       "pages": [
         "api-reference/introduction"
-      ]
-    },
-    {
-      "group": "Endpoint Examples",
-      "pages": [
-        "api-reference/endpoint/get",
-        "api-reference/endpoint/create",
-        "api-reference/endpoint/delete"
       ]
     }
   ],

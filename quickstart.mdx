@@ -1,86 +1,171 @@
 ---
 title: 'Quickstart'
-description: 'Start building awesome documentation in under 5 minutes'
+description: 'Getting Started with Copilotz'
 ---
 
-## Setup your development
+Welcome to Copilotz! This guide will walk you through the steps to set up your first Copilotz agent and integrate it with WhatsApp. By the end of this guide, you will have an AI-powered agent up and running, ready to respond to WhatsApp messages using your APIs.
 
-Learn how to update your docs locally and deploy them to the public.
+## Step 1: Sign Up and Get Your API Key
 
-### Edit and preview
+To get started, you’ll need to sign up for an account and retrieve your API key. Follow these steps:
 
-<AccordionGroup>
-  <Accordion icon="github" title="Clone your docs locally">
-    During the onboarding process, we created a repository on your Github with
-    your docs content. You can find this repository on our
-    [dashboard](https://dashboard.mintlify.com). To clone the repository
-    locally, follow these
-    [instructions](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
-    in your terminal.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Preview changes">
-    Previewing helps you make sure your changes look as intended. We built a
-    command line interface to render these changes locally. 1. Install the
-    [Mintlify CLI](https://www.npmjs.com/package/mintlify) to preview the
-    documentation changes locally with this command: ``` npm i -g mintlify ```
-    2. Run the following command at the root of your documentation (where
-    `mint.json` is): ``` mintlify dev ```
-  </Accordion>
-</AccordionGroup>
+1. **Go to the Copilotz [landing page](#)**.
+2. Click the **Getting Started** button at the top of the page. This will guide you through the account creation process.
+3. After signing up, you’ll receive an access token (API key), which you’ll need to authenticate your API calls.
+4. Your Copilotz account will automatically have access to the free sandbox environment, where you can test your integrations using a default WhatsApp number provided by Copilotz (extId: `ABC123`).
 
-### Deploy your changes
+> **Note:** If you’re on the free tier, you can use the provided WhatsApp sandbox number for testing. To link your own WhatsApp number for production, you will need to subscribe to a paid plan.
 
-<AccordionGroup>
+## Step 2: Set Up WhatsApp Integration
 
-<Accordion icon="message-bot" title="Install our Github app">
-  Our Github app automatically deploys your changes to your docs site, so you
-  don't need to manage deployments yourself. You can find the link to install on
-  your [dashboard](https://dashboard.mintlify.com). Once the bot has been
-  successfully installed, there should be a check mark next to the commit hash
-  of the repo.
-</Accordion>
-<Accordion icon="rocket" title="Push your changes">
-  [Commit and push your changes to
-  Git](https://docs.github.com/en/get-started/using-git/pushing-commits-to-a-remote-repository#about-git-push)
-  for your changes to update in your docs site. If you push and don't see that
-  the Github app successfully deployed your changes, you can also manually
-  update your docs through our [dashboard](https://dashboard.mintlify.com).
-</Accordion>
+Once you’ve signed up and obtained your API key, it’s time to connect your Copilotz agent to WhatsApp.
 
-</AccordionGroup>
+### Free Tier (Testing with Copilotz WhatsApp Number)
 
-## Update your docs
+In the free tier, you can use Copilotz’s default WhatsApp number to test your integration:
 
-Add content directly in your files with MDX syntax and React components. You can use any of our components, or even build your own.
+1. Upon completing the "Getting Started" process, a **channel** resource is automatically created. This channel links a WhatsApp hook to the Copilotz testing number (extId: `ABC123`).
+2. Use the `channels` resource to manage this test channel and set up the **allowList** property to control which users can send messages to this number.
 
-<CardGroup>
+Example API call to update the **allowList** for your testing channel:
 
-<Card title="Style Your Docs" icon="paintbrush" href="/settings/global">
-  Add flair to your docs with personalized branding.
-</Card>
+```javascript
+const updateChannel = async (accessToken) => {
+  const channelId = 'your_channel_id';  // Channel ID created during the signup process
+  const response = await fetch(`https://copilotz.com/rest/channels/${channelId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      allowList: ["5511987654321", "5511998765432"],  // List of phone numbers allowed to test the WhatsApp integration
+    }),
+  });
 
-<Card
-  title="Add API Endpoints"
-  icon="square-code"
-  href="/api-playground/configuration"
->
-  Implement your OpenAPI spec and enable API user interaction.
-</Card>
+  if (response.ok) {
+    console.log("Channel allowList updated successfully.");
+  } else {
+    console.error("Failed to update channel allowList.");
+  }
+};
+```
 
-<Card
-  title="Integrate Analytics"
-  icon="chart-mixed"
-  href="/analytics/supported-integrations"
->
-  Draw insights from user interactions with your documentation.
-</Card>
+Now, any phone number added to the **allowList** can send and receive messages to/from the testing WhatsApp number (`ABC123`).
 
-<Card
-  title="Host on a Custom Domain"
-  icon="browser"
-  href="/settings/custom-domain/subdomain"
->
-  Keep your docs on your own website's subdomain.
-</Card>
+### Paid Plan (Connecting Your Own WhatsApp Number)
 
-</CardGroup>
+If you’ve subscribed to a paid plan, you can link your own WhatsApp number to Copilotz. Here’s how:
+
+1. **Click the "Connect WhatsApp" button** on the [landing page](#) or within the dashboard.
+2. This will guide you through the process of registering your WhatsApp number.
+3. During this process, another **channel** resource will be created, linking your registered WhatsApp number to a WhatsApp hook and callback in Copilotz.
+4. After setup, your WhatsApp number is ready to receive messages through Copilotz agents.
+
+Example API call to view the channel associated with your WhatsApp number:
+
+```javascript
+const getChannels = async (accessToken) => {
+  const response = await fetch("https://copilotz.com/rest/channels", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const channels = await response.json();
+  console.log("Your Channels:", channels);
+};
+```
+
+## Step 3: Create Your First Copilotz Agent
+
+Once WhatsApp is set up, it's time to create your first Copilotz agent. This agent can be a transcriber, chatbot, task manager, or function call handler.
+
+Here’s how to create a simple **Chat** agent:
+
+1. Use the **Copilotz** resource to create a new agent. This agent will interact with users over WhatsApp, responding to messages and performing actions.
+
+Example API call to create a Copilotz agent:
+
+```javascript
+const createAgent = async (accessToken) => {
+  const response = await fetch("https://copilotz.com/rest/copilotz", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      name: "My First Agent",
+      description: "This agent will handle basic chat functionality.",
+      backstory: "An AI agent to help users with common queries.",
+      actions: [1, 2],  // IDs of actions this agent can perform
+      job: 1,  // Job associated with this agent (e.g., Chatbot, Transcriber)
+    }),
+  });
+
+  const agent = await response.json();
+  console.log("Agent created:", agent);
+};
+```
+
+### Key Agent Types:
+- **Transcriber**: Transcribes audio messages into text.
+- **Chat**: Maintains conversation context, useful for chatbots.
+- **Function Call**: Executes API requests or custom functions.
+- **Task Manager**: Manages workflows with multiple steps and tasks.
+
+> **Note:** You can configure workflows for Task Manager agents, allowing them to follow specific steps to complete tasks. More details can be found in the [Workflows](#workflows) section.
+
+## Step 4: Create an Action
+
+Actions define what your Copilotz agents can do. For example, a **Function Call** agent might execute an API request or a **Chat** agent might send a pre-defined response to a user's query.
+
+Example API call to create an action:
+
+```javascript
+const createAction = async (accessToken) => {
+  const response = await fetch("https://copilotz.com/rest/actions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      name: "Send Welcome Message",
+      description: "An action that sends a welcome message to the user.",
+      specType: "native:request",  // Use native 'request' module to handle API requests
+      moduleUrl: "native:request",  // Native handler for API requests
+      spec: "...",  // OpenAPI or custom module specs
+    }),
+  });
+
+  const action = await response.json();
+  console.log("Action created:", action);
+};
+```
+
+## Step 5: Test in Sandbox Environment
+
+Before moving to production, it's important to test your setup. Copilotz provides a sandbox environment where you can interact with your agents using the provided test WhatsApp number (`ABC123`).
+
+To test:
+1. Use the **allowList** to add your phone number to the test channel.
+2. Send a WhatsApp message to the test number.
+3. Your Copilotz agent will process the message and respond based on the actions you've configured.
+
+## Step 6: Move to Production
+
+When you're ready to go live with your own WhatsApp number, simply upgrade to a paid plan. Your existing agents and workflows can be linked to your production WhatsApp number, allowing you to start handling real user interactions.
+
+---
+
+### Next Steps
+Now that you have a basic understanding of how to get started with Copilotz, explore the following sections for more advanced topics:
+- **[Workflows](#workflows)**: Learn how to define and manage multi-step workflows for your agents.
+- **[Tasks](#tasks)**: Understand how tasks are managed and progressed through workflows.
+- **[Actions](#actions)**: Explore how to create custom actions and integrate with external APIs using OpenAPI specs.
+
+For any additional questions or troubleshooting, visit our [FAQ](#FAQ) or [support](#support) pages.
+

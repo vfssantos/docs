@@ -1,0 +1,3288 @@
+openapi: 3.0.0
+info:
+  title: COPILOTZ - API Reference
+  description: >-
+    ## Getting Started Guide
+
+    To start using this API, you need to:
+
+    - Use a valid access token to send requests to the API endpoints.
+    - The API returns request responses in JSON format. When an API request returns an error, it is sent in the JSON response as an error key.
+
+    ### Authentication
+
+    The Copilotz API uses Bearer Tokens for authentication. You can get your token by authenticating via username/password in the "Login" endpoint described below.
+
+    You must include an Authorization header containing the bearer token in each request to the Copilotz API.
+    
+    ```
+    Authorization: Bearer {access_token}
+    ```
+
+    ### Authentication Error Response
+
+    If an Authorization header containing the Bearer Token is missing, malformed, or invalid, you will receive an HTTP 401 Unauthorized response code.
+
+    ### 500 Response
+
+    An HTTP 500 response from our servers indicates there is an unexpected error on our side. The server is usually operational within the next minute. If the outage persists or you receive any other form of an HTTP 5XX error, [contact support](https://support.postman.com/hc/en-us/requests/new/).
+  version: 1.0.0
+
+servers:
+  - url: https://copilotz.com
+    description: COPILOTZ
+  - url: https://{namespace}.copilotz.com
+    description: COPILOTZ CLIENT
+    variables:
+      namespace:
+        default: api
+        description: Your Copilotz' workspace namespace
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+  - name: Actions
+    description: |
+
+        #### Purpose
+        The **Actions** resource in Copilotz allows users to define specific operations that can be performed by agents during workflows. These actions represent tasks such as making API requests, triggering a function, or interacting with external services, and they follow the OpenAPI specification for flexibility and consistency.
+
+        #### Resource Overview
+        An **Action** defines what tasks or operations an agent can execute. These actions can either be natively handled by Copilotz or can point to a custom module URL for more advanced functionality.
+
+        #### Key Concepts
+        - **Action Name:** The name of the action, which should be descriptive and clear.
+        - **Description:** A brief explanation of what the action does.
+        - **Specification Type (specType):** Defines the format of the specification. Typically, this will be `openapi3-yaml` but can be extended for other formats.
+        - **Module URL (moduleUrl):** The URL where the logic for the action is hosted. If you use `native:request`, Copilotz will handle the request natively.
+        - **OpenAPI Spec (spec):** The OpenAPI 3.0 specification for the action, which defines the input, output, and expected behavior.
+
+        ---
+
+        #### Example
+
+        A typical **Action** would look like this:
+
+        ```json
+        {
+          "name": "getWeather",
+          "description": "Fetches current weather data for a specified location.",
+          "specType": "openapi3-yaml",
+          "moduleUrl": "native:request",
+          "spec": "openapi: 3.0.0\ninfo:\n  title: Get Weather API\npaths:\n  /weather:\n    get:\n      summary: Get current weather\n      parameters:\n        - in: query\n          name: location\n          schema:\n            type: string\n          required: true\n          description: The location to get weather for.\n      responses:\n        '200':\n          description: Successful response\n          content:\n            application/json:\n              schema:\n                type: object\n                properties:\n                  temperature:\n                    type: number\n                  condition:\n                    type: string"
+        }
+        ```
+
+        ---
+
+        #### Fields
+
+        - **name** (string) – The unique identifier for the action.
+        - **description** (string) – A clear and concise explanation of what the action does.
+        - **specType** (string) – The specification format, generally `openapi3-yaml`. This defines how the action is structured and interpreted.
+        - **moduleUrl** (string) – The URL where the logic of the action is hosted. For basic API requests, `native:request` can be used.
+        - **spec** (string) – The OpenAPI specification that defines the action. This contains paths, methods, parameters, and responses, providing a structured format for executing the action.
+
+        ---
+
+        #### Behavior
+
+        - **Native Actions:** If the `moduleUrl` is set to `native:request`, Copilotz will handle the action internally, using the provided OpenAPI specification to make an HTTP request.
+          
+        - **Custom Actions:** If the `moduleUrl` points to an external module, that URL will be invoked, and it will handle the operation. The user must provide their own implementation for this action.
+
+        #### Usage
+
+        - Actions are attached to **Copilotz agents**, either directly in the **Copilotz** resource, or by being attached to **Jobs** or **Steps** in a workflow. 
+          - In case it's attached to jobs, the actions available to copilotz will acumulate with the actions attached directly to the **Copilotz** resource (if any), when the Copilotz is at that job
+          - In case it's attached to a **Step**, it will only be available to the **Copilotz** once they are working on that particular step. Note that, in this case, you'd have to be using the **TaskManager Agent** provided by Copilotz.
+        - Actions can be reused across multiple workflows, and are executed as part of workflow steps.
+
+      
+  - name: Channels
+    description: |
+      #### Purpose
+      The **Channels** resource in Copilotz connects your agents to external communication platforms, such as WhatsApp. Channels allow agents to interact with users through specific messaging channels by defining the hooks, callbacks, and configuration needed to establish and manage these connections.
+
+      #### Resource Overview
+      A **Channel** represents a communication path between a Copilotz agent and an external platform (e.g., WhatsApp). Each channel is associated with a unique configuration that dictates how incoming and outgoing messages are handled. Channels can link directly to WhatsApp numbers, custom webhooks, or other services and manage message routing, authentication, and handling.
+
+      #### Key Concepts
+      - **Channel Name:** A descriptive name for the channel.
+      - **Description:** A brief overview of what the channel does or what it connects to.
+      - **External ID (extId):** A unique identifier that links the channel to the external platform (e.g., WhatsApp number).
+      - **Hook Type (hook):** The type of connection the channel uses (e.g., RPC, WhatsApp).
+      - **Callback Type (callback):** Defines how messages are delivered (e.g., WhatsApp, RPC).
+      - **Handler URL (handlerUrl):** The URL or endpoint that processes incoming messages or events. It can also use native agent handlers (e.g., `native:agents/taskManager`).
+      - **Configuration (config):** Additional settings, such as the Copilotz instance ID and message streaming behavior. This includes properties like `allowList`, which can define which users can interact with the channel.
+
+      ---
+
+      #### Example
+
+      A sample **Channel** for connecting to WhatsApp would look like this:
+
+      ```yaml
+      {
+        "name": "WhatsApp Channel",
+        "description": "Channel for interacting with users via WhatsApp",
+        "extId": "1234567890",  // WhatsApp number or other external identifier
+        "hook": "whatsapp",     // The connection type
+        "callback": "whatsapp", // How responses are handled
+        "handlerUrl": "native:agents/chat", // Using the native agent handler
+        "config": {
+          "copilotzId": 1,     // ID of the Copilotz instance managing this channel
+          "streamResponseBy": "turn", // How responses are streamed back to the client
+          "allowList": ["user1", "user2"] // Optional, can be used to restrict access for testing purposes
+        }
+      }
+      ```
+
+      ---
+
+      #### Fields
+
+      - **name** (string) – The unique identifier for the channel.
+      - **description** (string) – A clear and concise explanation of what the channel does and what platform it connects to.
+      - **extId** (string) – The external identifier for the channel. For example, this could be a WhatsApp phone number.
+      - **hook** (string) – Defines the hook type, specifying how the channel interacts with the external platform (e.g., `rpc`, `whatsapp`).
+      - **callback** (string) – Specifies how responses are sent back to the external platform. Common options are `rpc` or `whatsapp`.
+      - **handlerUrl** (string) – The URL or path where incoming messages are processed. It can be a custom endpoint or a native agent handler like `native:agents/taskManager`.
+      - **config** (object) – A configuration object that defines channel-specific settings:
+        - **copilotzId** (integer) – The ID of the Copilotz instance handling the messages.
+        - **streamResponseBy** (string) – Specifies how messages are streamed (e.g., `"turn"` for message-by-message delivery).
+        - **allowList** (array of strings) – An optional list of users allowed to interact with the channel, often used for testing in non-production environments.
+
+      ---
+
+      #### Behavior
+
+      - **Free Tier vs Paid Plans:** During the **"getting started"** process, two channels are created automatically. For users on the free tier, a test channel is created with a pre-configured WhatsApp number (`extId`), allowing users to test the integration. To fully connect a custom WhatsApp number, users need to select a paid plan.
+        
+      - **Message Routing and Webhooks:** Channels control how messages from users are routed to Copilotz agents and how responses are streamed back. For example, when a WhatsApp message is received, the corresponding agent's handler (e.g., `native:agents/chat`) processes the message and returns a response.
+
+      - **Testing with Allow Lists:** For users on the free tier, an **allowList** property can be configured via the `/rest/channels` API to restrict access to specific users while testing with a Copilotz-managed WhatsApp number.
+
+      ---
+
+      #### Usage
+
+      - Channels are essential for connecting external communication services (such as WhatsApp) to Copilotz agents.
+      - You can create new channels, update their configuration, or manage who can use them through the `/rest/channels` API.
+      - Channels are required to enable real-time interaction between users and agents over external platforms.
+
+  - name: Copilotz
+    description: |
+
+      #### Purpose
+      The **Copilotz** resource represents AI agents that can interact with external platforms (e.g., WhatsApp) and complete tasks or workflows based on user interactions and predefined configurations. These agents are the core units of the Copilotz platform, designed to automate various tasks by executing workflows, making API requests, and managing conversations with end-users.
+
+      #### Resource Overview
+      A **Copilotz agent** is a customizable AI-powered entity that can be configured with specific actions, workflows, and tasks to interact with users on communication platforms like WhatsApp. Each agent is attached to a job, which defines its role, and can execute predefined workflows, using actions to interact with APIs or perform tasks such as transcriptions or sending messages.
+
+      #### Key Concepts
+      - **Copilotz Name:** The unique name for the agent, which is used to identify and describe the agent.
+      - **Description:** A brief overview of the agent’s purpose and behavior.
+      - **Backstory:** Optional background information that defines the agent’s identity and can be used to customize how it interacts with users (useful for conversational agents).
+      - **Actions:** A list of specific actions that the agent is allowed to perform, such as sending messages, making API requests, or interacting with workflows.
+      - **Configurations:** Settings that control how the agent behaves, such as which AI model it uses and its access to various platforms.
+      - **Job ID:** Each agent is linked to a job, which defines its overall role and the specific actions and workflows it can execute.
+
+      ---
+
+      #### Example
+
+      A sample **Copilotz agent** configuration might look like this:
+
+      ```yaml
+      {
+        "name": "SupportAgent",
+        "description": "An AI agent that assists with customer support queries on WhatsApp.",
+        "backstory": "This agent is trained to provide helpful and friendly responses to customer queries.",
+        "actions": [1, 2, 3],  // Action IDs the agent can perform
+        "configs": [1, 2],     // Configuration objects controlling behavior (e.g., AI model)
+        "job": 1               // Job ID defining the agent’s role
+      }
+      ```
+
+      ---
+
+      #### Fields
+
+      - **name** (string) – The name of the Copilotz agent, which is unique and identifies the agent.
+      - **description** (string) – A brief explanation of what the agent does or the purpose it serves.
+      - **backstory** (string, optional) – Background information that defines the agent’s persona. This can help in scenarios where the agent interacts conversationally with users.
+      - **actions** (array of integers) – A list of action IDs that this agent is authorized to execute. These actions define the tasks that the agent can perform.
+      - **configs** (array of integers) – A list of configuration IDs that control the agent’s behavior. Configurations can specify which AI model to use or other custom settings.
+      - **job** (integer) – The job ID that defines the agent’s role. The job links the agent to a set of workflows and actions.
+
+      ---
+
+      #### Behavior
+
+      - **Interaction with Channels and Workflows:** Copilotz agents are linked to communication channels (e.g., WhatsApp) via the **Channels** resource, and they execute tasks through **Workflows**. Each agent can handle multiple workflows, depending on its assigned job and configuration.
+        
+      - **Workflows and Jobs:** Agents are attached to **Jobs**, which define the role of the agent, including the workflows it will follow. Workflows are sequences of tasks that the agent executes to complete a job, such as answering customer queries or managing user registrations.
+
+      - **Actions and Configurations:** Actions define the tasks the agent can perform, such as sending messages or making API requests. Configurations allow the agent to behave in specific ways, such as using certain AI models or interacting with particular external services.
+
+      ---
+
+      #### Usage
+
+      - You can create, modify, and delete Copilotz agents through the `/rest/copilotz` endpoint. Agents are linked to specific workflows and actions, making them capable of executing predefined tasks across communication platforms.
+      - **Jobs** and **Workflows** define the overall behavior of the agent, while **Actions** provide specific tasks for the agent to perform during a workflow.
+      - Agents can be reused across multiple workflows and channels, allowing you to scale up operations by creating additional agents with different roles or configurations.
+
+      ---
+
+      #### Key Use Cases
+
+      - **Customer Support:** Create a Copilotz agent that can handle customer inquiries on WhatsApp. This agent can be configured to follow workflows that answer common queries, escalate issues, and trigger backend actions (e.g., creating tickets).
+        
+      - **Task Automation:** Agents can automate repetitive tasks, such as processing user requests, managing reservations, or handling customer feedback. These agents execute workflows and call APIs through actions, making them ideal for automating business processes.
+
+      - **Customizable AI Conversations:** By providing a backstory and configuring specific actions, Copilotz agents can be highly personalized. For example, a "SupportAgent" might be programmed to respond with empathy, while an "AdminBot" might focus on delivering accurate and concise responses.
+
+      ---
+
+      #### Expanding with Workflows
+
+      You can attach workflows to Copilotz agents by assigning them through jobs or directly linking them to the agent. These workflows define the step-by-step processes the agent follows when interacting with users. After creating a workflow, link its step IDs to the workflow, which will be executed by the Copilotz agent.
+
+      ---
+
+      #### Example of Workflow Assignment
+
+      Once a workflow is created, link it to the Copilotz agent either directly or via a job. This will enable the agent to follow the steps defined in the workflow.
+
+      ```javascript
+      const assignWorkflowToAgent = async (accessToken, agentId, workflowId) => {
+        const response = await fetch(`https://copilotz.com/rest/copilotz/${agentId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            job: workflowId,  // Link the workflow directly to the agent via the job or agent
+          }),
+        });
+
+        if (response.ok) {
+          const updatedAgent = await response.json();
+          console.log("Agent updated with workflow:", updatedAgent);
+        } else {
+          const error = await response.json();
+          console.error("Failed to update agent:", error.error.message);
+        }
+      };
+      ```
+  - name: Configs
+  - name: Jobs
+  - name: Logs
+  - name: Secrets
+  - name: Step
+    description: |
+
+      ### Description of the **"Steps"** Resource
+
+      #### Purpose
+      The **Steps** resource defines individual actions or tasks that a Copilotz agent must perform as part of a workflow. Each step represents a discrete unit of work, such as collecting user input, making an API call, or performing a decision. Steps are the building blocks of workflows and guide agents through tasks in a sequential manner, with flexibility to handle success or failure scenarios.
+
+      #### Resource Overview
+      A **Step** is a single task within a workflow. Each step provides detailed instructions to the Copilotz agent on how to perform the task, what conditions need to be met to move to the next step, and how to handle success or failure. Steps can also be configured to trigger specific actions via the `onSubmit` property, enabling agents to execute actions (e.g., API requests or function calls) as part of the workflow.
+
+      #### Key Concepts
+      - **Step Name:** A unique identifier for the step, clearly defining its purpose within the workflow.
+      - **Description:** A brief overview of what the step accomplishes.
+      - **Instructions:** Detailed guidance for the Copilotz agent on how to execute the step, such as what to ask the user or what action to perform.
+      - **Submit When:** Criteria that define when the step is considered complete, allowing the workflow to proceed.
+      - **On Submit:** An action that is triggered when the step is completed. This action can be an API request or any other predefined action.
+      - **Next Step:** The ID of the next step to move to when the current step is successfully completed.
+      - **Failed Next Step:** The ID of the step to proceed to if the step fails, allowing for error handling or alternative paths in the workflow.
+
+      ---
+
+      #### Example
+
+      A sample **Step** that collects user information and calls an API action upon submission might look like this:
+
+      ```yaml
+      {
+        "name": "Collect User Information",
+        "description": "Asks the user for their name and email address.",
+        "instructions": "Please provide your name and email to proceed with registration.",
+        "submitWhen": "The user provides both a valid name and email address.",
+        "onSubmit": 1,  // Action ID for calling an API after submission
+        "next": 2,      // ID of the next step if successful
+        "failedNext": 3 // ID of the step to go to if submission fails
+      }
+      ```
+
+      ---
+
+      #### Fields
+
+      - **name** (string) – The name of the step, which should clearly describe what the step does.
+      - **description** (string) – A brief explanation of the task or action this step represents within the workflow.
+      - **instructions** (string) – Detailed guidance for the Copilotz agent on how to perform the step. This could include what to ask the user, how to handle their response, or what external API to call.
+      - **submitWhen** (string) – A condition or criteria that defines when this step should be considered complete. For example, the step might be marked as complete when the user provides a valid input or when a certain API response is received.
+      - **onSubmit** (integer, optional) – The ID of an action that is triggered when the step is completed. This action will be called with the arguments provided during submission. For example, this could be an API request to register a user.
+      - **next** (integer) – The ID of the next step in the workflow, which the agent will move to after completing the current step successfully.
+      - **failedNext** (integer, optional) – The ID of the next step to proceed to if the submission fails. This enables workflows to handle errors or retry logic in case of failure.
+      - **job** (integer, optional) – The job ID or workflow that this step is associated with. This allows steps to be reused across different workflows if necessary.
+
+      ---
+
+      #### Behavior
+
+      - **Step Execution:** Steps are executed sequentially within a workflow. When a step is completed, the workflow moves to the next step specified by the `next` field. If an error occurs during the execution, the workflow can move to the `failedNext` step.
+        
+      - **On Submit Action:** The **onSubmit** field allows you to trigger an action after the step is completed. This can be used for API requests, database updates, or any other predefined action in the system. The arguments passed during submission will be sent to the action for execution.
+
+      - **Chaining Steps with Success and Failure Handling:** Each step can have a **next** step for successful completion and a **failedNext** step for handling failures. This enables workflows to account for different outcomes and allows agents to follow alternate paths based on success or failure.
+
+      ---
+
+      #### Usage
+
+      - **Creating Steps:** Steps are created via the `/rest/steps` endpoint. After creating the steps, associate them with a workflow by adding their step IDs to the workflow's configuration.
+        
+      - **On Submit Logic:** Use the **onSubmit** field to define actions that should be executed when the step is completed. For example, after collecting user input, the agent can trigger an API call to register the user or update a database.
+        
+      - **Handling Failures with FailedNext:** If a step fails (e.g., the user provides invalid input or an API call fails), the agent will move to the step defined by the **failedNext** field. This allows you to handle retries, provide alternative instructions, or escalate the workflow.
+
+      ---
+
+      #### Example of Step Execution with Error Handling
+
+      Here’s an example workflow that uses the **onSubmit** and **failedNext** properties to handle both success and failure cases:
+
+      1. **Step 1: Collect User Name**
+        - **Instructions:** "Please enter your name."
+        - **Submit When:** "The user provides a valid name."
+        - **On Submit:** Calls an action to validate the name via an API.
+        - **Next:** Proceed to Step 2 if validation succeeds.
+        - **Failed Next:** Move to Step 3 to handle errors if validation fails.
+
+      2. **Step 2: Collect Email Address**
+        - **Instructions:** "Please enter your email address."
+        - **Submit When:** "The user provides a valid email."
+        - **On Submit:** Calls an action to register the user via an API.
+        - **Next:** Proceed to Step 4 to confirm registration.
+
+      3. **Step 3: Error Handling**
+        - **Instructions:** "The provided name is invalid. Please try again."
+        - **Next:** Return to Step 1 to retry.
+
+      4. **Step 4: Confirm Registration**
+        - **Instructions:** "Your registration is complete. Thank you!"
+        - **Submit When:** "The user confirms."
+
+      ---
+
+      #### Example of Creating a Step with OnSubmit and FailedNext
+
+      ```javascript
+      const createStep = async (accessToken, stepData) => {
+        const response = await fetch(`https://copilotz.com/rest/steps`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(stepData),
+        });
+
+        if (response.ok) {
+          const createdStep = await response.json();
+          console.log("Step created successfully:", createdStep);
+        } else {
+          const error = await response.json();
+          console.error("Failed to create step:", error.error.message);
+        }
+      };
+
+      // Example step data
+      const stepData = {
+        name: "Collect User Name",
+        description: "Asks the user to provide their name.",
+        instructions: "Please enter your name to proceed.",
+        submitWhen: "The user provides a valid name.",
+        onSubmit: 1,  // Action ID to be called on submission
+        next: 2,      // Move to the next step after successful completion
+        failedNext: 3 // Move to a different step if the submission fails
+      };
+
+      createStep("your_access_token", stepData);
+      ```
+
+      ---
+
+      #### Key Use Cases
+
+      - **Form Submission with Validation:** You can use **onSubmit** to trigger an API request after collecting data from the user. If the API returns an error, the **failedNext** property can guide the workflow to retry or provide error handling instructions.
+        
+      - **Decision Making in Workflows:** By using both **next** and **failedNext**, you can design workflows that take different paths based on whether a task succeeds or fails. This enables robust error handling and ensures that workflows are flexible enough to handle various outcomes.
+
+      ---
+
+      #### Best Practices
+
+      - **Use OnSubmit for External Calls:** Trigger API requests or function calls when important actions are completed, like submitting a form or processing user input.
+        
+      - **Clear Failure Paths:** Always define **failedNext** steps for error handling. This ensures that the workflow can gracefully handle failures, whether from user input or external system errors.
+
+      - **Validate and Retry:** Use the **failedNext** property to implement retry logic. If a user provides invalid input, you can direct the workflow back to the step where the error occurred.
+
+  - name: Tasks
+    description: |
+
+      #### Purpose
+      The **Tasks** resource represents an individual unit of work that progresses through a series of steps in a workflow. Tasks move from step to step within the workflow, similar to how tasks progress across columns on a Kanban board. The same task advances as the workflow executes, and its state (e.g., the current step, status, and context) is updated either automatically by the Copilotz agent or programmatically via the API. A workflow can contain multiple tasks, each following its unique progression through the workflow's steps.
+
+      #### Resource Overview
+      A **Task** represents a work item that progresses through multiple steps within a workflow. It tracks the current state, such as the **currentStep**, **status**, and any **context** information required for processing. The task moves forward as each step is completed, updating its state along the way. You can programmatically update the task’s **status**, **currentStep**, and **context** via the API, or these fields can be managed automatically by the Copilotz agent as it executes the workflow.
+
+      #### Key Concepts
+      - **Workflow ID:** The ID of the workflow in which the task is progressing.
+      - **Current Step:** The ID of the step the task is currently in.
+      - **Task Status:** The current status of the task as it progresses through the workflow.
+      - **External ID (extId):** Optionally links the task to an external system via an external ID.
+      - **Context:** Stores arbitrary data related to the task that can be used throughout the workflow.
+
+      ---
+
+      #### Example
+
+      A sample **Task** for managing a customer support workflow, which progresses through multiple steps, might look like this:
+
+      ```yaml
+      {
+        "extId": "SUPPORT_56789",  // External ID linking the task to an external support system
+        "workflow": 2,  // ID of the workflow the task belongs to
+        "currentStep": 1,  // Step the task is currently on
+        "status": "active",  // Status of the task (active, pending, failed, etc.)
+        "name": "Resolve Customer Issue",  // Name of the task
+        "description": "Task to resolve a customer support issue.",
+        "context": {
+          "customer": "John Doe",
+          "issue": "Account locked",
+          "priority": "high"
+        }  // Arbitrary data stored with the task, can be updated at each step
+      }
+      ```
+
+      ---
+
+      #### Fields
+
+      - **extId** (string, optional) – The external ID for the task, used to link the task to external systems.
+      - **workflow** (integer) – The ID of the workflow that this task belongs to.
+      - **currentStep** (integer) – The ID of the step the task is currently in. This field progresses as the task moves through the workflow steps.
+      - **status** (string) – The current status of the task. Possible values include:
+        - `active`: The task is currently in progress.
+        - `pending`: The task is waiting for a condition to be met or for an external action.
+        - `failed`: The task encountered an error and has not been completed successfully.
+        - `completed`: The task has been successfully completed.
+      - **name** (string) – A human-readable name for the task, used to describe the task’s purpose.
+      - **description** (string) – A brief explanation of the task’s objective.
+      - **context** (object, optional) – Stores arbitrary data related to the task. The **context** is mutable and can be updated as the task progresses through the workflow. This field is useful for keeping track of state across multiple steps or for passing information to external systems.
+
+      ---
+
+      #### Behavior
+
+      - **Task Progression through Steps:** A task progresses through multiple steps in a workflow, similar to how tasks move across columns on a Kanban board. Each task advances based on the workflow's logic, with the **currentStep** field updating accordingly. The task remains the same but moves through different steps in the workflow.
+        
+      - **Automatic and Programmatic Updates:** The task’s **status**, **currentStep**, and **context** can be updated either automatically by the Copilotz agent as the workflow progresses or manually via the API. This flexibility allows developers to manage task progression programmatically when needed.
+
+      - **Task Status:** A task can transition between different statuses based on its progression through the workflow. For example, a task might move from `active` to `pending` if it requires user input or external validation, and it may move to `completed` when the workflow finishes successfully.
+
+      ---
+
+      #### Usage
+
+      - **Managing Tasks Programmatically:** You can update a task’s **status**, **currentStep**, and **context** via the API. This allows for fine-grained control over task progression and enables external systems to interact with the workflow by updating task state.
+        
+      - **Automatic Task Updates by Copilotz Agent:** The Copilotz agent will automatically update the task as it moves through the steps of a workflow. For example, when a step is completed, the agent will update the **currentStep** to the next step and adjust the **status** based on the outcome of the step.
+
+      - **Handling Workflow Errors:** If a task encounters an error (e.g., a failed API request or invalid user input), its **status** can be set to `failed`, allowing the workflow to either retry the task or move to a designated error-handling step.
+
+      ---
+
+      #### Example of Task Execution Across Multiple Steps
+
+      Here’s how a **Task** would progress through a workflow consisting of multiple steps, similar to how tasks move across columns in a Kanban board:
+
+      1. **Step 1: Gather User Information**
+        - **Workflow:** Customer Onboarding
+        - **Current Step:** Step 1 (Collecting user information)
+        - **Status:** Active
+        - **Context:** Stores the user’s name and contact details.
+
+      2. **Step 2: Send Confirmation Email**
+        - **Workflow:** Customer Onboarding
+        - **Current Step:** Step 2 (Sending confirmation email)
+        - **Status:** Pending (waiting for email response)
+        - **Context:** Updates to store the email confirmation status.
+
+      3. **Step 3: Complete Onboarding**
+        - **Workflow:** Customer Onboarding
+        - **Current Step:** Step 3 (Finalizing onboarding)
+        - **Status:** Active
+        - **Context:** Final onboarding details.
+
+      ---
+
+      #### Example of Creating and Updating a Task
+
+      ```javascript
+      const createTask = async (accessToken, taskData) => {
+        const response = await fetch(`https://copilotz.com/rest/tasks`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(taskData),
+        });
+
+        if (response.ok) {
+          const createdTask = await response.json();
+          console.log("Task created successfully:", createdTask);
+        } else {
+          const error = await response.json();
+          console.error("Failed to create task:", error.error.message);
+        }
+      };
+
+      // Example task data
+      const taskData = {
+        extId: "SUPPORT_56789",  // External ID for linking the task to external systems
+        workflow: 2,  // Associated workflow ID
+        currentStep: 1,  // Current step in the workflow
+        status: "active",  // Initial status of the task
+        name: "Resolve Customer Issue",  // Task name
+        description: "Task to resolve a customer support issue.",
+        context: {
+          issue: "Account locked",
+          priority: "high"
+        }  // Arbitrary data for task context
+      };
+
+      createTask("your_access_token", taskData);
+
+      // Example of updating a task programmatically
+      const updateTask = async (accessToken, taskId, updateData) => {
+        const response = await fetch(`https://copilotz.com/rest/tasks/${taskId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(updateData),
+        });
+
+        if (response.ok) {
+          const updatedTask = await response.json();
+          console.log("Task updated successfully:", updatedTask);
+        } else {
+          const error = await response.json();
+          console.error("Failed to update task:", error.error.message);
+        }
+      };
+
+      // Example update data for progressing a task
+      const updateData = {
+        currentStep: 2,  // Move to the next step
+        status: "pending",  // Waiting for external action
+        context: {
+          emailSent: true
+        }  // Update context with new information
+      };
+
+      updateTask("your_access_token", taskId, updateData);
+      ```
+
+      ---
+
+      #### Key Use Cases
+
+      - **Progressing Tasks Through a Workflow:** Tasks automatically or programmatically progress through the workflow’s steps, with the **currentStep** and **status** fields updating to reflect their position in the process.
+        
+      - **Context Management:** Tasks can carry important data throughout the workflow via the **context** field. This data can be updated at each step to reflect the current state of the task, making it easier to track progress and pass information between steps.
+
+      - **Handling Multiple Tasks:** Multiple tasks can be running simultaneously within a workflow, each at a different step. This allows for complex workflows that manage multiple independent or dependent tasks at the same time.
+
+      - **Programmatic Updates
+
+      :** Developers can control task progression via the API, manually updating the task’s state as needed. This is useful in cases where external systems need to trigger progress or handle errors.
+
+      ---
+
+      #### Best Practices
+
+      - **Use Context to Store Task-Specific Data:** The **context** field should be used to store data that is important for the task’s progression. This could include user input, API responses, or any other data required for subsequent steps.
+
+      - **Handle Failures Gracefully:** Ensure that tasks have error-handling logic in place. Use the **status** field to mark tasks as `failed` when errors occur and define retry or alternative steps in the workflow.
+
+      - **Monitor Task Progression:** Regularly check and update the **currentStep** field to track task progression. This ensures that tasks move smoothly through the workflow and that any issues are detected early.
+
+  - name: Workflows
+    description: |
+
+      #### Purpose
+      The **Workflows** resource defines the sequence of steps and actions that a Copilotz agent follows to complete a task. Workflows provide a structured way to automate processes, such as customer support, task execution, or user registration, by guiding agents through a series of predefined actions.
+
+      #### Resource Overview
+      A **Workflow** is a series of steps that are executed in order by a Copilotz agent. Each step can include instructions for the agent and conditions for moving on to the next step. Workflows are highly flexible and can be customized to handle a wide variety of use cases, from simple tasks to complex processes that require multiple interactions.
+
+      #### Key Concepts
+      - **Workflow Name:** A unique identifier for the workflow that reflects its purpose.
+      - **Description:** A brief overview of the workflow’s function and goal.
+      - **Instructions:** Detailed instructions for the Copilotz agent to follow at each step of the workflow.
+      - **Steps:** A list of step IDs that define the individual actions or tasks within the workflow. Each step represents a discrete task the agent will perform, such as asking a question or making an API call.
+      - **Job Association:** Workflows can be attached to **Jobs**, which define the overall role of the agent, but they can also be directly assigned to Copilotz agents.
+
+      ---
+
+      #### Example
+
+      A sample **Workflow** for handling customer registration might look like this:
+
+      ```yaml
+      {
+        "name": "User Registration Workflow",
+        "description": "Workflow for registering new users and collecting their information.",
+        "instructions": "Guide the user through the registration process by collecting their personal details, email, and preferences.",
+        "steps": [1, 2, 3]  // Step IDs that define the registration process
+      }
+      ```
+
+      ---
+
+      #### Fields
+
+      - **name** (string) – The name of the workflow, which should clearly identify the process it automates.
+      - **description** (string) – A brief explanation of the workflow’s purpose and what it aims to achieve.
+      - **instructions** (string) – Detailed instructions for the Copilotz agent to follow during the workflow. These can include guidance on how to interact with the user and any specific conditions for completing the workflow.
+      - **steps** (array of integers) – A list of step IDs that define the tasks to be performed. Each step represents a distinct action or decision point in the workflow.
+      - **job** (integer, optional) – The ID of the job that this workflow is associated with. If the workflow is not directly assigned to a job, it can be assigned to an individual Copilotz agent.
+
+      ---
+
+      #### Behavior
+
+      - **Execution Flow:** The workflow guides the Copilotz agent through a series of steps. Each step can have its own instructions and conditions for completion. For example, the agent may collect information from a user, perform an API request, or execute an action.
+        
+      - **Steps and Instructions:** A workflow consists of multiple **Steps**. Each step represents a specific task or decision point that the agent must complete before moving on to the next one. The instructions for each step are defined within the workflow or passed dynamically during execution.
+
+      - **Dynamic Task Assignment:** Workflows can be attached to jobs, allowing any agent assigned to that job to execute the workflow. Alternatively, workflows can be assigned directly to agents for specific tasks.
+
+      ---
+
+      #### Usage
+
+      - You can create, update, and delete workflows through the `/rest/workflows` endpoint.
+      - **Steps** within the workflow define specific tasks or decision points for the agent to execute. After creating a workflow, you will need to associate the correct step IDs with it, defining how the agent will proceed through the process.
+      - Workflows are attached to **Jobs** or can be directly assigned to **Copilotz agents**, depending on how the task should be handled.
+
+      ---
+
+      #### Example of a Workflow in Action
+
+      Once a workflow is created, it can be assigned to a job or directly to an agent. Below is an example of how a workflow might be executed by a Copilotz agent during a customer registration process.
+
+      1. **Step 1: Collect User Information**
+        - The agent asks the user for their name and email address.
+        - If the user provides the required information, the workflow moves to the next step.
+
+      2. **Step 2: Confirm User Preferences**
+        - The agent asks the user for additional preferences (e.g., newsletter subscription).
+        - If the user submits the preferences, the workflow moves to the final step.
+
+      3. **Step 3: Complete Registration**
+        - The agent sends the collected information to the backend via an API request.
+        - Upon successful registration, the agent confirms the registration to the user and closes the workflow.
+
+      ---
+
+      #### Fields and Conditions
+
+      Each step within a workflow can include **conditions** that must be met before moving on to the next step. These conditions could be based on user input or a specific response from an external service. You can customize the steps in a workflow to ensure the agent follows the appropriate path.
+
+      ---
+
+      #### Key Use Cases
+
+      - **Customer Registration:** Automate the process of collecting user information and preferences, validating the data, and creating new user accounts.
+        
+      - **Task Management:** Define workflows to manage tasks like updating user records, managing subscriptions, or handling customer service inquiries.
+
+      - **Automated Conversations:** Guide the agent through a structured conversation with a user, ensuring that all required information is collected and processed in the correct order.
+
+      ---
+
+      #### Example of Workflow Assignment
+
+      After creating a workflow, it needs to be linked to a Copilotz agent or job. This can be done dynamically via API calls.
+
+      ```javascript
+      const createWorkflow = async (accessToken, workflowData) => {
+        const response = await fetch(`https://copilotz.com/rest/workflows`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(workflowData),
+        });
+
+        if (response.ok) {
+          const createdWorkflow = await response.json();
+          console.log("Workflow created successfully:", createdWorkflow);
+        } else {
+          const error = await response.json();
+          console.error("Failed to create workflow:", error.error.message);
+        }
+      };
+      ```
+
+      ---
+
+      #### Best Practices
+
+      - **Step Reusability:** Whenever possible, create reusable steps that can be applied across multiple workflows. This minimizes duplication and allows for more flexible and maintainable workflows.
+        
+      - **Testing with Allow Lists:** When testing workflows, especially in non-production environments, use the `allowList` property in channels to restrict who can interact with the workflow to ensure proper functionality before going live.
+
+  - name: Workspaces
+  - name: Hooks
+  - name: HandlersClient
+
+components:
+  securitySchemes:
+    noauthAuth:
+      type: http
+      scheme: noauth
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    # Authentication Schemas
+    LoginRequest:
+      type: object
+      description: "Request payload for user authentication."
+      properties:
+        username:
+          type: string
+          format: email
+          description: "User's email address used for authentication."
+          example: "john.doe@example.cocommpany"
+        password:
+          type: string
+          format: password
+          description: "User's password."
+          example: "your-password"
+        namespace:
+          type: string
+          description: "Namespace associated with the user's account."
+          example: "example_namespace"
+      required:
+        - username
+        - password
+        - namespace
+
+    LoginResponse:
+      type: object
+      description: "Successful authentication response containing access token and expiration."
+      properties:
+        accessToken:
+          type: string
+          description: "JWT access token for authenticated requests."
+          example: "tk_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NjRiOTBhYzEwM2ExM..."
+        expiresAt:
+          type: string
+          format: date-time
+          description: "Expiration date and time of the access token."
+          example: "2024-05-23T13:53:03.591Z"
+      required:
+        - accessToken
+        - expiresAt
+
+    LoginError:
+      type: object
+      description: "Error response for failed authentication attempts."
+      properties:
+        error:
+          type: object
+          description: "Detailed error information."
+          properties:
+            message:
+              type: string
+              description: "Error message detailing the login failure."
+              example: "Invalid username or password"
+          required:
+            - message
+      required:
+        - error
+
+    RegisterRequest:
+      type: object
+      description: "Request payload for user registration."
+      properties:
+        name:
+          type: string
+          description: "Full name of the user."
+          example: "Your Name"
+        email:
+          type: string
+          format: email
+          description: "User's email address."
+          example: "your.email@example.com"
+        phone:
+          type: string
+          description: "User's phone number."
+          example: "9999999999"
+        password:
+          type: string
+          format: password
+          description: "User's password."
+          example: "123456"
+        namespace:
+          type: string
+          description: "Namespace for the new user."
+          example: "your_namespace"
+      required:
+        - name
+        - email
+        - phone
+        - password
+        - namespace
+
+    RegisterResponse:
+      type: object
+      description: "Successful registration response containing user and workspace details."
+      properties:
+        _id:
+          type: integer
+          description: "Unique identifier for the user."
+          example: 4
+        account:
+          type: object
+          description: "Account details associated with the user."
+          properties:
+            _id:
+              type: integer
+              description: "Unique identifier for the account."
+              example: 3
+            provider:
+              type: string
+              description: "Authentication provider."
+              example: "email"
+            username:
+              type: string
+              format: email
+              description: "User's email address used as username."
+              example: "your_email@example.com"
+            passwordHash:
+              type: string
+              description: "Hashed version of the user's password."
+              example: "cb376cae8261bd9394c1d5bf2d7c31dfc3be0e4e6777d73a1530decd34ed336c"
+            salt:
+              type: string
+              description: "Salt used for hashing the password."
+              example: "b79afdd432f7cf578c43bb2a29093fd6"
+            name:
+              type: string
+              description: "Full name of the user."
+              example: "Your Name"
+            context:
+              type: object
+              description: "Additional context for the account."
+              nullable: true
+            profile:
+              type: integer
+              description: "Profile identifier associated with the account."
+              example: 3
+            createdAt:
+              type: string
+              format: date-time
+              description: "Timestamp when the account was created."
+              example: "2024-09-17T22:47:24.270Z"
+            updatedAt:
+              type: string
+              format: date-time
+              description: "Timestamp when the account was last updated."
+              example: "2024-09-17T22:47:24.270Z"
+          required:
+            - _id
+            - provider
+            - username
+            - passwordHash
+            - salt
+            - name
+            - profile
+            - createdAt
+            - updatedAt
+        role:
+          type: integer
+          description: "Role identifier assigned to the user."
+          example: 2
+        workspace:
+          type: object
+          description: "Workspace details associated with the user."
+          properties:
+            _id:
+              type: integer
+              description: "Unique identifier for the workspace."
+              example: 6
+            name:
+              type: string
+              description: "Name of the workspace."
+              example: "My Workspace"
+            namespace:
+              type: string
+              description: "Namespace of the workspace."
+              example: "my_namespace"
+            host:
+              type: string
+              description: "Host URL of the workspace."
+              example: "my_namespace.copilotz.com"
+            status:
+              type: string
+              description: "Current status of the workspace."
+              example: "active"
+            context:
+              type: object
+              description: "Additional context for the workspace."
+              nullable: true
+            createdAt:
+              type: string
+              format: date-time
+              description: "Timestamp when the workspace was created."
+              example: "2024-09-17T22:47:22.643Z"
+            updatedAt:
+              type: string
+              format: date-time
+              description: "Timestamp when the workspace was last updated."
+              example: "2024-09-17T22:47:22.643Z"
+          required:
+            - _id
+            - name
+            - namespace
+            - host
+            - status
+            - createdAt
+            - updatedAt
+        createdAt:
+          type: string
+          format: date-time
+          description: "Timestamp when the user was created."
+          example: "2024-09-17T22:47:25.423Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: "Timestamp when the user was last updated."
+          example: "2024-09-17T22:47:25.423Z"
+      required:
+        - _id
+        - account
+        - role
+        - workspace
+        - createdAt
+        - updatedAt
+
+    RegisterError:
+      type: object
+      description: "Error response for failed registration attempts."
+      properties:
+        error:
+          type: object
+          description: "Detailed error information."
+          properties:
+            message:
+              type: string
+              description: "Error message detailing the registration failure."
+              example: "Account already exists"
+          required:
+            - message
+      required:
+        - error
+
+    MeResponse:
+      type: object
+      description: "Response containing current authenticated user information."
+      properties:
+        _id:
+          type: integer
+          description: "Unique identifier for the user."
+          example: 1
+        provider:
+          type: string
+          description: "Authentication provider."
+          example: "email"
+        username:
+          type: string
+          format: email
+          description: "User's email address."
+          example: "your-email@example.com"
+        name:
+          type: string
+          description: "Full name of the user."
+          example: "John Doe"
+        context:
+          type: object
+          description: "Additional context for the user."
+          nullable: true
+        profile:
+          type: integer
+          description: "Profile identifier associated with the user."
+          example: 1
+        workspace:
+          type: object
+          description: "Workspace details associated with the user."
+          properties:
+            _id:
+              type: integer
+              description: "Unique identifier for the workspace."
+              example: 4
+            name:
+              type: string
+              description: "Name of the workspace."
+              example: "My Workspace"
+            namespace:
+              type: string
+              description: "Namespace of the workspace."
+              example: "my-workspace-namespace"
+            host:
+              type: string
+              description: "Host URL of the workspace."
+              example: "my-workspace-namespace.copilotz.com"
+            status:
+              type: string
+              description: "Current status of the workspace."
+              example: "active"
+            context:
+              type: object
+              description: "Additional context for the workspace."
+              nullable: true
+            createdAt:
+              type: string
+              format: date-time
+              description: "Timestamp when the workspace was created."
+              example: "2024-09-17T16:52:28.684Z"
+            updatedAt:
+              type: string
+              format: date-time
+              description: "Timestamp when the workspace was last updated."
+              example: "2024-09-17T16:52:28.684Z"
+          required:
+            - _id
+            - name
+            - namespace
+            - host
+            - status
+            - createdAt
+            - updatedAt
+        role:
+          type: object
+          description: "Role details assigned to the user."
+          properties:
+            _id:
+              type: integer
+              description: "Unique identifier for the role."
+              example: 2
+            name:
+              type: string
+              description: "Name of the role."
+              example: "WORKSPACE_ADMIN"
+            permissions:
+              type: array
+              description: "Permissions associated with the role."
+              items:
+                type: object
+                properties:
+                  schema:
+                    type: string
+                    description: "Permission schema."
+                    example: "['users', 'roles'].indexOf({{resource}}) < 0"
+                  read:
+                    type: string
+                    description: "Scope of read permissions."
+                    example: "{{account.workspace._id}}"
+                  write:
+                    type: string
+                    description: "Scope of write permissions."
+                    example: "{{account.workspace._id}}"
+                required:
+                  - schema
+                  - read
+                  - write
+            createdAt:
+              type: string
+              format: date-time
+              description: "Timestamp when the role was created."
+              example: "2024-08-14T18:38:39.118Z"
+            updatedAt:
+              type: string
+              format: date-time
+              description: "Timestamp when the role was last updated."
+              example: "2024-08-14T18:38:39.118Z"
+          required:
+            - _id
+            - name
+            - permissions
+            - createdAt
+            - updatedAt
+        createdAt:
+          type: string
+          format: date-time
+          description: "Timestamp when the user was created."
+          example: "2024-08-15T18:49:02.068Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: "Timestamp when the user was last updated."
+          example: "2024-08-15T18:49:02.068Z"
+      required:
+        - _id
+        - provider
+        - username
+        - name
+        - profile
+        - workspace
+        - role
+        - createdAt
+        - updatedAt
+
+    MeError:
+      type: object
+      description: "Error response for failed retrieval of user information."
+      properties:
+        error:
+          type: object
+          description: "Detailed error information."
+          properties:
+            message:
+              type: string
+              description: "Error message detailing the failure."
+              example: "Unauthorized - jwt expired"
+          required:
+            - message
+      required:
+        - error
+
+    InviteRequest:
+      type: object
+      description: "Request payload for inviting a new user."
+      properties:
+        name:
+          type: string
+          description: "Full name of the invitee."
+          example: "Gabriel Carechio"
+        email:
+          type: string
+          format: email
+          description: "Email address of the invitee."
+          example: "gabriel@axion.company"
+        phone:
+          type: string
+          description: "Phone number of the invitee."
+          example: "5511961877409"
+        password:
+          type: string
+          format: password
+          description: "Password for the invitee's account."
+          example: "123456"
+      required:
+        - name
+        - email
+        - phone
+        - password
+
+    InviteResponse:
+      type: object
+      description: "Successful invitation response."
+      additionalProperties: true
+      example: {}
+
+    NewWorkspaceRequest:
+      type: object
+      description: "Request payload for creating a new workspace."
+      properties:
+        namespace:
+          type: string
+          description: "Namespace identifier for the new workspace."
+          example: "eopm"
+      required:
+        - namespace
+
+    NewWorkspaceResponse:
+      type: object
+      description: "Successful workspace creation response."
+      additionalProperties: true
+      example: {}
+
+    # Actions Schemas
+
+    ActionRequest:
+      type: object
+      description: "Request payload for creating or updating an action."
+      properties:
+        name:
+          type: string
+          description: "Name of the action."
+          example: "Your Action Name"
+        description:
+          type: string
+          description: "Detailed description of the action."
+          example: "Your Action Description"
+        specType:
+          type: string
+          description: "Specification type of the action."
+          example: "openapi3-yaml"
+        moduleUrl:
+          type: string
+          format: uri
+          description: "URL of the module that will be used to execute this action."
+          example: "https://example.com/modules/sendTemplate.js"
+        spec:
+          type: string
+          description: "YAML file documentation on how to perform the action."
+          example: "openapi: 3.0.0\ninfo:\n  title: Send Template API\npaths:\n  /sendTemplate:\n    post:\n      summary: Send a template message\n      ..."
+      required:
+        - name
+        - description
+        - specType
+        - moduleUrl
+        - spec
+
+    ActionResponse:
+      type: object
+      description: "Response containing action details."
+      properties:
+        name:
+          type: string
+          description: "Name of the action."
+          example: "Send Template Message"
+        description:
+          type: string
+          description: "Detailed description of the action."
+          example: "Send templated messages to WhatsApp users."
+        specType:
+          type: string
+          description: "Specification type of the action."
+          example: "openapi3-yaml"
+        moduleUrl:
+          type: string
+          format: uri
+          description: "URL of the module that will be used to execute this action."
+          example: "https://example.com/modules/sendTemplate.js"
+        spec:
+          type: string
+          description: "YAML file documentation on how to perform the action."
+          example: "openapi: 3.0.0\ninfo:\n  title: Send Template API\npaths:\n  /sendTemplate:\n    post:\n      summary: Send a template message\n      ..."
+      required:
+        - name
+        - description
+        - specType
+        - moduleUrl
+        - spec
+
+    # Channels Schemas
+
+    ChannelRequest:
+      type: object
+      description: "Request payload for creating or updating a channel."
+      properties:
+        name:
+          type: string
+          description: "Name of the channel."
+          example: "Send Template Message to WhatsApp User"
+        description:
+          type: string
+          description: "Detailed description of the channel."
+          example: "Description of this channel."
+        extId:
+          type: string
+          description: "External ID used in the channel payload for matching and forwarding."
+          example: "249688884896294"
+        hook:
+          type: string
+          description: "Hook type for the channel."
+          enum: ["rpc", "whatsapp"]
+          example: "rpc"
+        callback:
+          type: string
+          description: "Callback type for the channel."
+          enum: ["rpc", "whatsapp"]
+          example: "whatsapp"
+        handlerUrl:
+          type: string
+          format: uri
+          description: >
+            URL to handle incoming messages/events. Can be any valid URL or in the format `native:agents/<agentType>`.
+          example: "native:agents/taskManager"
+        config:
+          type: object
+          description: "Configuration settings for the channel."
+          properties:
+            copilotzId:
+              type: integer
+              description: "ID of the Copilotz instance handling the messages/events."
+              example: 1
+            streamResponseBy:
+              type: string
+              description: "Specifies how responses are streamed by the Copilotz client."
+              enum: ["turn"]
+              example: "turn"
+            additionalProperties:
+              type: string
+              description: "Any additional properties to register and pass to the client."
+              example: "additionalPropertyValue"
+          required:
+            - copilotzId
+            - streamResponseBy
+      required:
+        - name
+        - description
+        - extId
+        - hook
+        - callback
+        - handlerUrl
+        - config
+
+    ChannelResponse:
+      type: object
+      description: "Response containing channel details."
+      properties:
+        name:
+          type: string
+          description: "Name of the channel."
+          example: "Send Template Message to WhatsApp User"
+        description:
+          type: string
+          description: "Detailed description of the channel."
+          example: "Send Template Message to WhatsApp User"
+        extId:
+          type: string
+          description: "External ID used in the channel payload for matching and forwarding."
+          example: "249688884896294"
+        hook:
+          type: string
+          description: "Hook type for the channel."
+          enum: ["rpc", "whatsapp"]
+          example: "rpc"
+        callback:
+          type: string
+          description: "Callback type for the channel."
+          enum: ["rpc", "whatsapp"]
+          example: "whatsapp"
+        handlerUrl:
+          type: string
+          format: uri
+          description: >
+            URL to handle incoming messages/events. Can be any valid URL or in the format `native:agents/<agentType>`.
+          example: "native:agents/taskManager"
+        config:
+          type: object
+          description: "Configuration settings for the channel."
+          properties:
+            copilotzId:
+              type: integer
+              description: "ID of the Copilotz instance handling the messages/events."
+              example: 1
+            streamResponseBy:
+              type: string
+              description: "Specifies how responses are streamed by the Copilotz client."
+              enum: ["turn"]
+              example: "turn"
+            additionalProperties:
+              type: string
+              description: "Any additional properties to register and pass to the client."
+              example: "additionalPropertyValue"
+          required:
+            - copilotzId
+            - streamResponseBy
+      required:
+        - name
+        - description
+        - extId
+        - hook
+        - callback
+        - handlerUrl
+        - config
+
+    # Copilotz Schemas
+
+    CopilotzRequest:
+      type: object
+      description: "Request payload for creating or updating a Copilotz agent."
+      properties:
+        name:
+          type: string
+          description: "Name of the Copilotz agent."
+          example: "Your Copilotz Name"
+        description:
+          type: string
+          description: "Detailed description of the Copilotz agent."
+          example: "Your Copilotz Description"
+        backstory:
+          type: string
+          description: "Backstory defining the Copilotz agent's identity."
+          example: "This is a simple backstory for your Copilotz. It's useful for defining its identity."
+        actions:
+          type: array
+          description: "List of action IDs that the Copilotz agent is permitted to perform."
+          items:
+            type: integer
+          example: [1, 2, 3]
+        configs:
+          type: array
+          description: "List of configuration object IDs related to this Copilotz agent."
+          items:
+            type: integer
+          example: [1, 2]
+        job:
+          type: integer
+          description: "ID of the job associated with this Copilotz agent."
+          example: 1
+      required:
+        - name
+        - description
+        - backstory
+
+    CopilotzResponse:
+      type: object
+      description: "Response containing Copilotz agent details."
+      properties:
+        name:
+          type: string
+          description: "Name of the Copilotz agent."
+          example: "Your Copilotz Name"
+        description:
+          type: string
+          description: "Detailed description of the Copilotz agent."
+          example: "Your Copilotz Description"
+        backstory:
+          type: string
+          description: "Backstory defining the Copilotz agent's identity."
+          example: "This is a simple backstory for your Copilotz. It's useful for defining its identity."
+        actions:
+          type: array
+          description: "List of action IDs that the Copilotz agent is permitted to perform."
+          items:
+            type: integer
+          example: [1, 2, 3]
+        configs:
+          type: array
+          description: "List of configuration object IDs related to this Copilotz agent."
+          items:
+            type: integer
+          example: [1, 2]
+        job:
+          type: integer
+          description: "ID of the job associated with this Copilotz agent."
+          example: 1
+      required:
+        - name
+        - description
+        - backstory
+
+    # Configs Schemas
+
+    ConfigRequest:
+      type: object
+      description: "Request payload for creating or updating a configuration."
+      properties:
+        name:
+          type: string
+          description: "Name of the configuration."
+          example: "AI_CHAT_PROVIDER"
+        value:
+          type: object
+          description: "Configuration values."
+          properties:
+            provider:
+              type: string
+              description: "AI provider name."
+              example: "openai"
+            model:
+              type: string
+              description: "AI model name."
+              example: "gpt-4o"
+          required:
+            - provider
+            - model
+        owner:
+          type: integer
+          description: "ID of the owner entity (e.g., Copilotz agent ID)."
+          example: 1
+        ownerType:
+          type: string
+          description: "Type of the owner entity."
+          example: "copilotz"
+      required:
+        - name
+        - value
+        - owner
+        - ownerType
+
+    ConfigResponse:
+      type: object
+      description: "Response containing configuration details."
+      properties:
+        name:
+          type: string
+          description: "Name of the configuration."
+          example: "AI_CHAT_PROVIDER"
+        value:
+          type: object
+          description: "Configuration values."
+          properties:
+            provider:
+              type: string
+              description: "AI provider name."
+              example: "openai"
+            model:
+              type: string
+              description: "AI model name."
+              example: "gpt-4o"
+          required:
+            - provider
+            - model
+        owner:
+          type: integer
+          description: "ID of the owner entity (e.g., Copilotz agent ID)."
+          example: 1
+        ownerType:
+          type: string
+          description: "Type of the owner entity."
+          example: "copilotz"
+      required:
+        - name
+        - value
+        - owner
+        - ownerType
+
+    # Jobs Schemas
+
+    JobRequest:
+      type: object
+      description: "Request payload for creating or updating a job."
+      properties:
+        role:
+          type: string
+          description: "Role name associated with the job."
+          example: "Copilotz Developer"
+        goal:
+          type: string
+          description: "Objective or goal of the job."
+          example: "Assist users with technical inquiries."
+        description:
+          type: string
+          description: "Detailed description of the job."
+          example: "Handles all technical support tasks and user queries."
+        actions:
+          type: array
+          description: "List of action IDs that any Copilotz with this job can perform."
+          items:
+            type: integer
+          example: [1, 2]
+        defaultWorkflow:
+          type: integer
+          description: "ID of the default workflow for this job."
+          example: 1
+      required:
+        - role
+        - goal
+        - description
+
+    JobResponse:
+      type: object
+      description: "Response containing job details."
+      properties:
+        role:
+          type: string
+          description: "Role name associated with the job."
+          example: "Copilotz Developer"
+        goal:
+          type: string
+          description: "Objective or goal of the job."
+          example: "Assist users with technical inquiries."
+        description:
+          type: string
+          description: "Detailed description of the job."
+          example: "Handles all technical support tasks and user queries."
+        actions:
+          type: array
+          description: "List of action IDs that any Copilotz with this job can perform."
+          items:
+            type: integer
+          example: [1, 2]
+        defaultWorkflow:
+          type: integer
+          description: "ID of the default workflow for this job."
+          example: 1
+      required:
+        - role
+        - goal
+        - description
+
+    # Logs Schemas
+
+    LogResponse:
+      type: object
+      description: "Response containing log details for a specific thread."
+      properties:
+        name:
+          type: string
+          description: "Name of the executed funciton"
+          example: "functionCall"
+        input:
+          type: object
+          description: "Input received for the log entry."
+          example: "User requested weather update."
+        output:
+          type: object
+          description: "Output generated for the log entry."
+          example: "Weather update sent to user."
+        status:
+          type: string
+          description: "Current status of the log entry."
+          example: "completed"
+        tags:
+          type: array
+          description: "Tags associated with the log entry."
+          items:
+            type: string
+          example: ["weather", "update"]
+        duration:
+          type: number
+          description: "Duration taken to process the log entry in milliseconds."
+          example: 1500
+        createdAt:
+          type: string
+          format: date-time
+          description: "Timestamp when the log entry was created."
+          example: "2024-09-17T16:52:28.684Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: "Timestamp when the log entry was last updated."
+          example: "2024-09-17T16:52:28.684Z"
+      required:
+        - instance
+        - input
+        - output
+        - status
+        - tags
+        - duration
+        - createdAt
+        - updatedAt
+
+    # Secrets Schemas
+
+    SecretRequest:
+      type: object
+      description: "Request payload for creating or updating a secret."
+      properties:
+        name:
+          type: string
+          description: "Name of the secret."
+          example: "SECRET_NAME"
+        value:
+          type: string
+          description: "Value of the secret."
+          example: "SECRET_VALUE"
+        createdBy:
+          type: integer
+          description: "ID of the user who created the secret."
+          example: 1
+      required:
+        - name
+        - value
+        - createdBy
+
+    SecretResponse:
+      type: object
+      description: "Response containing secret details."
+      properties:
+        name:
+          type: string
+          description: "Name of the secret."
+          example: "SECRET_NAME"
+        value:
+          type: string
+          description: "Value of the secret."
+          example: "SECRET_VALUE"
+        createdBy:
+          type: integer
+          description: "ID of the user who created the secret."
+          example: 1
+      required:
+        - name
+        - value
+        - createdBy
+
+    # Step Schemas
+
+    StepRequest:
+      type: object
+      description: "Request payload for creating or updating a step in a workflow."
+      properties:
+        name:
+          type: string
+          description: "Name of the step in the workflow."
+          example: "Gather User Information"
+        description:
+          type: string
+          description: "Description of what this step in the workflow should accomplish."
+          example: "This step collects user information necessary for processing."
+        instructions:
+          type: string
+          description: "Instructions provided to Copilotz for completing this step."
+          example: "Collect the user's location and preferences."
+        submitWhen:
+          type: string
+          description: "Condition under which Copilotz should consider this step complete and submit the final answer."
+          example: "User has provided the location from where it wants to check the weather."
+        job:
+          type: integer
+          description: "ID of the job that this step can override if it's specific."
+          example: 2
+        next:
+          type: integer
+          description: "ID of the next step in the workflow upon successful submission."
+          example: 2
+      required:
+        - name
+        - description
+        - instructions
+        - submitWhen
+
+    StepResponse:
+      type: object
+      description: "Response containing step details in a workflow."
+      properties:
+        name:
+          type: string
+          description: "Name of the step in the workflow."
+          example: "Gather User Information"
+        description:
+          type: string
+          description: "Description of what this step in the workflow should accomplish."
+          example: "This step collects user information necessary for processing."
+        instructions:
+          type: string
+          description: "Instructions provided to Copilotz for completing this step."
+          example: "Collect the user's location and preferences."
+        submitWhen:
+          type: string
+          description: "Condition under which Copilotz should consider this step complete and submit the final answer."
+          example: "User has provided the location from where it wants to check the weather."
+        job:
+          type: integer
+          description: "ID of the job that this step can override if it's specific."
+          example: 2
+        next:
+          type: integer
+          description: "ID of the next step in the workflow upon successful submission."
+          example: 2
+      required:
+        - name
+        - description
+        - instructions
+        - submitWhen
+
+    # Tasks Schemas
+
+    TaskRequest:
+      type: object
+      description: "Request payload for creating or updating a task within a workflow."
+      properties:
+        extId:
+          type: string
+          description: "External ID for matching with external systems."
+          example: "This is an external ID if you want to match an external system."
+        workflow:
+          type: integer
+          description: "ID of the workflow this task belongs to."
+          example: 1
+        currentStep:
+          type: integer
+          description: "ID of the current step in the workflow that this task is working on."
+          example: 1
+        status:
+          type: string
+          description: "Current status of the task."
+          enum: ["active", "pending", "failed"]
+          example: "active"
+        name:
+          type: string
+          description: "Name assigned to the task."
+          example: "Task Name"
+        description:
+          type: string
+          description: "Detailed description of the task."
+          example: "This is the description you want to give for your task."
+        context:
+          type: object
+          description: "Arbitrary data stored for future references."
+          example: {}
+      required:
+        - workflow
+        - currentStep
+        - status
+        - name
+        - description
+
+    TaskResponse:
+      type: object
+      description: "Response containing task details within a workflow."
+      properties:
+        extId:
+          type: string
+          description: "External ID for matching with external systems."
+          example: "This is an external ID if you want to match an external system."
+        workflow:
+          type: integer
+          description: "ID of the workflow this task belongs to."
+          example: 1
+        currentStep:
+          type: integer
+          description: "ID of the current step in the workflow that this task is working on."
+          example: 1
+        status:
+          type: string
+          description: "Current status of the task."
+          enum: ["active", "pending", "failed"]
+          example: "active"
+        name:
+          type: string
+          description: "Name assigned to the task."
+          example: "Task Name"
+        description:
+          type: string
+          description: "Detailed description of the task."
+          example: "This is the description you want to give for your task."
+        context:
+          type: object
+          description: "Arbitrary data stored for future references."
+          example: {}
+      required:
+        - workflow
+        - currentStep
+        - status
+        - name
+        - description
+
+    # Workflows Schemas
+
+    WorkflowRequest:
+      type: object
+      description: "Request payload for creating or updating a workflow."
+      properties:
+        name:
+          type: string
+          description: "Name of the workflow."
+          example: "Create Instagram Post Ideas from Long-format content"
+        description:
+          type: string
+          description: "Detailed description of the workflow."
+          example: "Register a new user for Pássaro Marron."
+        instructions:
+          type: string
+          description: "Instructions for the Copilotz to follow in this workflow."
+          example: "You'll be provided with transcriptions of long-format content, and provide Instagram Post Ideas while interacting directly with the content producers themselves."
+        steps:
+          type: array
+          description: "List of step IDs included in the workflow."
+          items:
+            type: integer
+          example: []
+      required:
+        - name
+        - description
+        - instructions
+
+    WorkflowResponse:
+      type: object
+      description: "Response containing workflow details."
+      properties:
+        name:
+          type: string
+          description: "Name of the workflow."
+          example: "Create Instagram Post Ideas from Long-format content"
+        description:
+          type: string
+          description: "Detailed description of the workflow."
+          example: "Register a new user for Pássaro Marron."
+        instructions:
+          type: string
+          description: "Instructions for the Copilotz to follow in this workflow."
+          example: "You'll be provided with transcriptions of long-format content, and provide Instagram Post Ideas while interacting directly with the content producers themselves."
+        steps:
+          type: array
+          description: "List of step IDs included in the workflow."
+          items:
+            type: integer
+          example: []
+      required:
+        - name
+        - description
+        - instructions
+
+    # Workspaces Schemas
+
+    WorkspaceRequest:
+      type: object
+      description: "Request payload for creating or updating a workspace."
+      properties:
+        name:
+          type: string
+          description: "Name of the workspace."
+          example: "Edit the name of your workspace"
+      required:
+        - name
+
+    WorkspaceResponse:
+      type: object
+      description: "Response containing workspace details."
+      properties:
+        name:
+          type: string
+          description: "Name of the workspace."
+          example: "Edit the name of your workspace"
+      required:
+        - name
+
+    # Hooks Schemas
+
+    HookRequest:
+      type: object
+      description: "Request payload for creating a webhook to send WhatsApp marketing templated messages."
+      properties:
+        extId:
+          type: string
+          description: "External ID for matching with external systems."
+          example: "275165175681181"
+        user:
+          type: object
+          description: "User details associated with the message."
+          properties:
+            name:
+              type: string
+              description: "Name of the user."
+              example: "Vinicius Santos"
+            phone:
+              type: string
+              description: "Phone number of the user."
+              example: "5511972186303"
+            email:
+              type: string
+              format: email
+              description: "Email address of the user."
+              example: "vinicius@axion.company"
+            ctx:
+              type: object
+              description: "Additional context for the user."
+              example: {}
+          required:
+            - name
+            - phone
+            - email
+        thread:
+          type: object
+          description: "Thread details for the message."
+          properties:
+            extId:
+              type: string
+              description: "External thread ID."
+              example: "5511972186303"
+            ctx:
+              type: object
+              description: "Additional context for the thread."
+              example: {}
+          required:
+            - extId
+        input:
+          type: string
+          description: "Input message"
+        audio:
+          type: string
+          description: "Blob of audio message"
+        answer:
+          type: object
+          description: "Answer details including the message and functions to execute."
+          properties:
+            message:
+              type: string
+              description: "Message content to be sent."
+              example: "Bem vindo à Pássaro Marron!\n\nVocê gostaria de fazer um cadastro conosco para ganhar um cupom de até 20% de desconto na próxima compra?"
+            functions:
+              type: array
+              description: "List of functions to execute with the message."
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: "Name of the function."
+                    example: "callback"
+                  args:
+                    type: object
+                    description: "Arguments for the function."
+                    properties:
+                      template:
+                        type: string
+                        description: "Template name to use."
+                        example: "signup_discount_coupon"
+                      variables:
+                        type: array
+                        description: "Variables to populate the template."
+                        items:
+                          type: string
+                        example: ["Pássaro Marron", "até 20% de ", "na próxima compra"]
+                      language:
+                        type: string
+                        description: "Language code for the message."
+                        example: "pt_BR"
+                    required:
+                      - template
+                      - variables
+                      - language
+                required:
+                  - name
+                  - args
+            submit:
+              type: object
+              description: "Submit action details."
+              example: {}
+          required:
+            - message
+            - functions
+            - submit
+      required:
+        - extId
+        - user
+        - thread
+        - answer
+
+    # Handlers (Client) Schemas
+
+    AgentRequest:
+      type: object
+      description: "Request payload for creating an agent handler."
+      properties:
+        config:
+          type: object
+          description: "Configuration settings for the agent."
+          properties:
+            copilotzId:
+              type: integer
+              description: "ID of the Copilotz instance handling the agent."
+              example: 1
+          required:
+            - copilotzId
+        user:
+          type: object
+          description: "User details interacting with the agent."
+          properties:
+            name:
+              type: string
+              description: "Name of the user."
+              example: "John Doe"
+            phone:
+              type: string
+              description: "Phone number of the user."
+              example: "15559209020"
+            email:
+              type: string
+              format: email
+              description: "Email address of the user."
+              example: "john.doe@example.com"
+            ctx:
+              type: object
+              description: "Additional context for the user."
+              example: {}
+          required:
+            - name
+            - phone
+            - email
+        thread:
+          type: object
+          description: "Thread details for the interaction."
+          properties:
+            extId:
+              type: string
+              description: "External thread ID."
+              example: "15559209020"
+            ctx:
+              type: object
+              description: "Additional context for the thread."
+              example: {}
+          required:
+            - extId
+        input:
+          type: string
+          description: "Input message from the user."
+          example: "Hi"
+      required:
+        - config
+        - user
+        - thread
+        - input
+
+    AgentResponse:
+      type: object
+      description: "Response after creating an agent handler."
+      properties:
+        message:
+          type: string
+          description: "Confirmation message."
+          example: "Agent created successfully."
+      required:
+        - message
+
+
+paths:
+  /api/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      security:
+        - noauthAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginError'
+
+  /api/auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      security:
+        - noauthAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterError'
+
+  /api/auth/me:
+    post:
+      tags:
+        - Auth
+      summary: Me
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeError'
+
+  /api/auth/invite:
+    post:
+      tags:
+        - Auth
+      summary: Invite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteResponse'
+
+  /api/auth/newWorkspace:
+    post:
+      tags:
+        - Auth
+      summary: New Workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewWorkspaceRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewWorkspaceResponse'
+
+  /rest/actions:
+    get:
+      tags:
+        - Actions
+      summary: List and Search
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActionResponse'
+    post:
+      tags:
+        - Actions
+      summary: Create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResponse'
+
+  /rest/actions/{id}:
+    get:
+      tags:
+        - Actions
+      summary: Get by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResponse'
+    put:
+      tags:
+        - Actions
+      summary: Edit by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionResponse'
+    delete:
+      tags:
+        - Actions
+      summary: Delete by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /rest/channels:
+    get:
+      tags:
+        - Channels
+      summary: List and Search
+      parameters:
+        - name: callback
+          in: query
+          schema:
+            type: string
+          example: whatsapp
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChannelResponse'
+    post:
+      tags:
+        - Channels
+      summary: Create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+
+  /rest/channels/{id}:
+    get:
+      tags:
+        - Channels
+      summary: Get by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+    put:
+      tags:
+        - Channels
+      summary: Edit by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+    delete:
+      tags:
+        - Channels
+      summary: Delete by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 2
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /rest/copilotz:
+    get:
+      tags:
+        - Copilotz
+      summary: List and Search
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CopilotzResponse'
+    post:
+      tags:
+        - Copilotz
+      summary: Create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopilotzRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopilotzResponse'
+
+  /rest/copilotz/{id}:
+    get:
+      tags:
+        - Copilotz
+      summary: Get by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopilotzResponse'
+    put:
+      tags:
+        - Copilotz
+      summary: Edit by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopilotzRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopilotzResponse'
+    delete:
+      tags:
+        - Copilotz
+      summary: Delete by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /rest/configs:
+    get:
+      tags:
+        - Configs
+      summary: List and Search
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConfigResponse'
+    post:
+      tags:
+        - Configs
+      summary: Create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+
+  /rest/configs/{id}:
+    get:
+      tags:
+        - Configs
+      summary: Get by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+    put:
+      tags:
+        - Configs
+      summary: Edit by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigResponse'
+    delete:
+      tags:
+        - Configs
+      summary: Delete by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 4
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /rest/jobs:
+    get:
+      tags:
+        - Jobs
+      summary: List and Search
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobResponse'
+    post:
+      tags:
+        - Jobs
+      summary: Create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+
+  /rest/jobs/{id}:
+    get:
+      tags:
+        - Jobs
+      summary: Get by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+    put:
+      tags:
+        - Jobs
+      summary: Edit by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+    delete:
+      tags:
+        - Jobs
+      summary: Delete by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 3
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /rest/logs:
+    get:
+      tags:
+        - Logs
+      summary: List and Search
+      description: >-
+        This HTTP GET request is used to retrieve log information for a specific
+        thread by providing the thread ID as a query parameter. The response
+        will be in JSON format with various properties such as instance, input,
+        output, status, tags, duration, createdAt, and updatedAt.
+
+        The response will have a status code of 200, indicating a successful
+        request, and the content type will be application/json.
+
+        The JSON response will include properties like instance, input, output,
+        status, tags, duration, createdAt, and updatedAt, each containing
+        specific information related to the log thread.
+
+        Please note that the actual values of the properties are masked for
+        privacy and security reasons.
+      parameters:
+        - name: input.0.thread.extId
+          in: query
+          schema:
+            type: integer
+          example: 5511972186303
+        - name: name
+          in: query
+          schema:
+            type: string
+          example: functionCall
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogResponse'
+
+  /rest/log/hide/{threadId}:
+    put:
+      tags:
+        - Logs
+      summary: Hide Logs By threadId
+      description: >-
+        This HTTP PUT request is used to hide log information for a specific
+        thread by providing the thread ID as a path parameter. The response
+        will be in JSON format indicating the success of the operation.
+
+        The response will have a status code of 200, indicating a successful
+        request, and the content type will be application/json.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5511972186303
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /rest/secrets:
+    get:
+      tags:
+        - Secrets
+      summary: List and Search
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SecretResponse'
+    post:
+      tags:
+        - Secrets
+      summary: Create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecretRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretResponse'
+
+  /rest/secrets/{id}:
+    get:
+      tags:
+        - Secrets
+      summary: Get by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 10
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretResponse'
+    put:
+      tags:
+        - Secrets
+      summary: Edit by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecretRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretResponse'
+    delete:
+      tags:
+        - Secrets
+      summary: Delete by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 10
+      responses:
+        '200':
+          description: Successful deletion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Secret deleted successfully."
+
+  /rest/steps:
+    get:
+      tags:
+        - Step
+      summary: List and Search
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StepResponse'
+    post:
+      tags:
+        - Step
+      summary: Create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StepRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StepResponse'
+
+  /rest/steps/{id}:
+    get:
+      tags:
+        - Step
+      summary: Get by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StepResponse'
+    put:
+      tags:
+        - Step
+      summary: Edit by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StepRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StepResponse'
+    delete:
+      tags:
+        - Step
+      summary: Delete by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5
+      responses:
+        '200':
+          description: Successful deletion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Step deleted successfully."
+
+  /rest/tasks:
+    get:
+      tags:
+        - Tasks
+      summary: List and Search
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TaskResponse'
+    post:
+      tags:
+        - Tasks
+      summary: Create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+
+  /rest/tasks/{id}:
+    get:
+      tags:
+        - Tasks
+      summary: Get by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+    put:
+      tags:
+        - Tasks
+      summary: Edit by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+    delete:
+      tags:
+        - Tasks
+      summary: Delete by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /rest/workflows:
+    get:
+      tags:
+        - Workflows
+      summary: List and Search
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowResponse'
+    post:
+      tags:
+        - Workflows
+      summary: Create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+
+  /rest/workflows/{id}:
+    get:
+      tags:
+        - Workflows
+      summary: Get by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+    put:
+      tags:
+        - Workflows
+      summary: Edit by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResponse'
+    delete:
+      tags:
+        - Workflows
+      summary: Delete by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /rest/workspaces:
+    get:
+      tags:
+        - Workspaces
+      summary: List and Search
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkspaceResponse'
+
+  /rest/workspaces/{id}:
+    get:
+      tags:
+        - Workspaces
+      summary: Get by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+    put:
+      tags:
+        - Workspaces
+      summary: Edit by Id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceResponse'
+
+  /api/hooks/whatsapp:
+    post:
+      tags:
+        - Hooks
+      summary: Create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HookRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HookRequest'
+
+

@@ -1,0 +1,105 @@
+
+#### Purpose
+The **Copilotz** resource represents AI agents that can interact with external platforms (e.g., WhatsApp) and complete tasks or workflows based on user interactions and predefined configurations. These agents are the core units of the Copilotz platform, designed to automate various tasks by executing workflows, making API requests, and managing conversations with end-users.
+
+#### Resource Overview
+A **Copilotz agent** is a customizable AI-powered entity that can be configured with specific actions, workflows, and tasks to interact with users on communication platforms like WhatsApp. Each agent is attached to a job, which defines its role, and can execute predefined workflows, using actions to interact with APIs or perform tasks such as transcriptions or sending messages.
+
+#### Key Concepts
+- **Copilotz Name:** The unique name for the agent, which is used to identify and describe the agent.
+- **Description:** A brief overview of the agent’s purpose and behavior.
+- **Backstory:** Optional background information that defines the agent’s identity and can be used to customize how it interacts with users (useful for conversational agents).
+- **Actions:** A list of specific actions that the agent is allowed to perform, such as sending messages, making API requests, or interacting with workflows.
+- **Configurations:** Settings that control how the agent behaves, such as which AI model it uses and its access to various platforms.
+- **Job ID:** Each agent is linked to a job, which defines its overall role and the specific actions and workflows it can execute.
+
+---
+
+#### Example
+
+A sample **Copilotz agent** configuration might look like this:
+
+```yaml
+{
+"name": "SupportAgent",
+"description": "An AI agent that assists with customer support queries on WhatsApp.",
+"backstory": "This agent is trained to provide helpful and friendly responses to customer queries.",
+"actions": [1, 2, 3],  // Action IDs the agent can perform
+"configs": [1, 2],     // Configuration objects controlling behavior (e.g., AI model)
+"job": 1               // Job ID defining the agent’s role
+}
+```
+
+---
+
+#### Fields
+
+- **name** (string) – The name of the Copilotz agent, which is unique and identifies the agent.
+- **description** (string) – A brief explanation of what the agent does or the purpose it serves.
+- **backstory** (string, optional) – Background information that defines the agent’s persona. This can help in scenarios where the agent interacts conversationally with users.
+- **actions** (array of integers) – A list of action IDs that this agent is authorized to execute. These actions define the tasks that the agent can perform.
+- **configs** (array of integers) – A list of configuration IDs that control the agent’s behavior. Configurations can specify which AI model to use or other custom settings.
+- **job** (integer) – The job ID that defines the agent’s role. The job links the agent to a set of workflows and actions.
+
+---
+
+#### Behavior
+
+- **Interaction with Channels and Workflows:** Copilotz agents are linked to communication channels (e.g., WhatsApp) via the **Channels** resource, and they execute tasks through **Workflows**. Each agent can handle multiple workflows, depending on its assigned job and configuration.
+
+- **Workflows and Jobs:** Agents are attached to **Jobs**, which define the role of the agent, including the workflows it will follow. Workflows are sequences of tasks that the agent executes to complete a job, such as answering customer queries or managing user registrations.
+
+- **Actions and Configurations:** Actions define the tasks the agent can perform, such as sending messages or making API requests. Configurations allow the agent to behave in specific ways, such as using certain AI models or interacting with particular external services.
+
+---
+
+#### Usage
+
+- You can create, modify, and delete Copilotz agents through the `/rest/copilotz` endpoint. Agents are linked to specific workflows and actions, making them capable of executing predefined tasks across communication platforms.
+- **Jobs** and **Workflows** define the overall behavior of the agent, while **Actions** provide specific tasks for the agent to perform during a workflow.
+- Agents can be reused across multiple workflows and channels, allowing you to scale up operations by creating additional agents with different roles or configurations.
+
+---
+
+#### Key Use Cases
+
+- **Customer Support:** Create a Copilotz agent that can handle customer inquiries on WhatsApp. This agent can be configured to follow workflows that answer common queries, escalate issues, and trigger backend actions (e.g., creating tickets).
+
+- **Task Automation:** Agents can automate repetitive tasks, such as processing user requests, managing reservations, or handling customer feedback. These agents execute workflows and call APIs through actions, making them ideal for automating business processes.
+
+- **Customizable AI Conversations:** By providing a backstory and configuring specific actions, Copilotz agents can be highly personalized. For example, a "SupportAgent" might be programmed to respond with empathy, while an "AdminBot" might focus on delivering accurate and concise responses.
+
+---
+
+#### Expanding with Workflows
+
+You can attach workflows to Copilotz agents by assigning them through jobs or directly linking them to the agent. These workflows define the step-by-step processes the agent follows when interacting with users. After creating a workflow, link its step IDs to the workflow, which will be executed by the Copilotz agent.
+
+---
+
+#### Example of Workflow Assignment
+
+Once a workflow is created, link it to the Copilotz agent either directly or via a job. This will enable the agent to follow the steps defined in the workflow.
+
+```javascript
+const assignWorkflowToAgent = async (accessToken, agentId, workflowId) => {
+const response = await fetch(`https://copilotz.com/rest/copilotz/${agentId}`, {
+method: "PUT",
+headers: {
+"Content-Type": "application/json",
+Authorization: `Bearer ${accessToken}`,
+},
+body: JSON.stringify({
+job: workflowId,  // Link the workflow directly to the agent via the job or agent
+}),
+});
+
+if (response.ok) {
+const updatedAgent = await response.json();
+console.log("Agent updated with workflow:", updatedAgent);
+} else {
+const error = await response.json();
+console.error("Failed to update agent:", error.error.message);
+}
+};
+```

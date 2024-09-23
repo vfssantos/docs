@@ -1,0 +1,70 @@
+
+#### Purpose
+The **Channels** resource in Copilotz connects your agents to external communication platforms, such as WhatsApp. Channels allow agents to interact with users through specific messaging channels by defining the hooks, callbacks, and configuration needed to establish and manage these connections.
+
+#### Resource Overview
+A **Channel** represents a communication path between a Copilotz agent and an external platform (e.g., WhatsApp). Each channel is associated with a unique configuration that dictates how incoming and outgoing messages are handled. Channels can link directly to WhatsApp numbers, custom webhooks, or other services and manage message routing, authentication, and handling.
+
+#### Key Concepts
+- **Channel Name:** A descriptive name for the channel.
+- **Description:** A brief overview of what the channel does or what it connects to.
+- **External ID (extId):** A unique identifier that links the channel to the external platform (e.g., WhatsApp number).
+- **Hook Type (hook):** The type of connection the channel uses (e.g., RPC, WhatsApp).
+- **Callback Type (callback):** Defines how messages are delivered (e.g., WhatsApp, RPC).
+- **Handler URL (handlerUrl):** The URL or endpoint that processes incoming messages or events. It can also use native agent handlers (e.g., `native:agents/taskManager`).
+- **Configuration (config):** Additional settings, such as the Copilotz instance ID and message streaming behavior. This includes properties like `allowList`, which can define which users can interact with the channel.
+
+---
+
+#### Example
+
+A sample **Channel** for connecting to WhatsApp would look like this:
+
+```yaml
+{
+"name": "WhatsApp Channel",
+"description": "Channel for interacting with users via WhatsApp",
+"extId": "1234567890",  // WhatsApp number or other external identifier
+"hook": "whatsapp",     // The connection type
+"callback": "whatsapp", // How responses are handled
+"handlerUrl": "native:agents/chat", // Using the native agent handler
+"config": {
+    "copilotzId": 1,     // ID of the Copilotz instance managing this channel
+    "streamResponseBy": "turn", // How responses are streamed back to the client
+    "allowList": ["user1", "user2"] // Optional, can be used to restrict access for testing purposes
+}
+}
+```
+
+---
+
+#### Fields
+
+- **name** (string) – The unique identifier for the channel.
+- **description** (string) – A clear and concise explanation of what the channel does and what platform it connects to.
+- **extId** (string) – The external identifier for the channel. For example, this could be a WhatsApp phone number.
+- **hook** (string) – Defines the hook type, specifying how the channel interacts with the external platform (e.g., `rpc`, `whatsapp`).
+- **callback** (string) – Specifies how responses are sent back to the external platform. Common options are `rpc` or `whatsapp`.
+- **handlerUrl** (string) – The URL or path where incoming messages are processed. It can be a custom endpoint or a native agent handler like `native:agents/taskManager`.
+- **config** (object) – A configuration object that defines channel-specific settings:
+- **copilotzId** (integer) – The ID of the Copilotz instance handling the messages.
+- **streamResponseBy** (string) – Specifies how messages are streamed (e.g., `"turn"` for message-by-message delivery).
+- **allowList** (array of strings) – An optional list of users allowed to interact with the channel, often used for testing in non-production environments.
+
+---
+
+#### Behavior
+
+- **Free Tier vs Paid Plans:** During the **"getting started"** process, two channels are created automatically. For users on the free tier, a test channel is created with a pre-configured WhatsApp number (`extId`), allowing users to test the integration. To fully connect a custom WhatsApp number, users need to select a paid plan.
+
+- **Message Routing and Webhooks:** Channels control how messages from users are routed to Copilotz agents and how responses are streamed back. For example, when a WhatsApp message is received, the corresponding agent's handler (e.g., `native:agents/chat`) processes the message and returns a response.
+
+- **Testing with Allow Lists:** For users on the free tier, an **allowList** property can be configured via the `/rest/channels` API to restrict access to specific users while testing with a Copilotz-managed WhatsApp number.
+
+---
+
+#### Usage
+
+- Channels are essential for connecting external communication services (such as WhatsApp) to Copilotz agents.
+- You can create new channels, update their configuration, or manage who can use them through the `/rest/channels` API.
+- Channels are required to enable real-time interaction between users and agents over external platforms.

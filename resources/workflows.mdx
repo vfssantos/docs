@@ -1,0 +1,125 @@
+
+      #### Purpose
+      The **Workflows** resource defines the sequence of steps and actions that a Copilotz agent follows to complete a task. Workflows provide a structured way to automate processes, such as customer support, task execution, or user registration, by guiding agents through a series of predefined actions.
+
+      #### Resource Overview
+      A **Workflow** is a series of steps that are executed in order by a Copilotz agent. Each step can include instructions for the agent and conditions for moving on to the next step. Workflows are highly flexible and can be customized to handle a wide variety of use cases, from simple tasks to complex processes that require multiple interactions.
+
+      #### Key Concepts
+      - **Workflow Name:** A unique identifier for the workflow that reflects its purpose.
+      - **Description:** A brief overview of the workflow’s function and goal.
+      - **Instructions:** Detailed instructions for the Copilotz agent to follow at each step of the workflow.
+      - **Steps:** A list of step IDs that define the individual actions or tasks within the workflow. Each step represents a discrete task the agent will perform, such as asking a question or making an API call.
+      - **Job Association:** Workflows can be attached to **Jobs**, which define the overall role of the agent, but they can also be directly assigned to Copilotz agents.
+
+      ---
+
+      #### Example
+
+      A sample **Workflow** for handling customer registration might look like this:
+
+      ```yaml
+      {
+        "name": "User Registration Workflow",
+        "description": "Workflow for registering new users and collecting their information.",
+        "instructions": "Guide the user through the registration process by collecting their personal details, email, and preferences.",
+        "steps": [1, 2, 3]  // Step IDs that define the registration process
+      }
+      ```
+
+      ---
+
+      #### Fields
+
+      - **name** (string) – The name of the workflow, which should clearly identify the process it automates.
+      - **description** (string) – A brief explanation of the workflow’s purpose and what it aims to achieve.
+      - **instructions** (string) – Detailed instructions for the Copilotz agent to follow during the workflow. These can include guidance on how to interact with the user and any specific conditions for completing the workflow.
+      - **steps** (array of integers) – A list of step IDs that define the tasks to be performed. Each step represents a distinct action or decision point in the workflow.
+      - **job** (integer, optional) – The ID of the job that this workflow is associated with. If the workflow is not directly assigned to a job, it can be assigned to an individual Copilotz agent.
+
+      ---
+
+      #### Behavior
+
+      - **Execution Flow:** The workflow guides the Copilotz agent through a series of steps. Each step can have its own instructions and conditions for completion. For example, the agent may collect information from a user, perform an API request, or execute an action.
+        
+      - **Steps and Instructions:** A workflow consists of multiple **Steps**. Each step represents a specific task or decision point that the agent must complete before moving on to the next one. The instructions for each step are defined within the workflow or passed dynamically during execution.
+
+      - **Dynamic Task Assignment:** Workflows can be attached to jobs, allowing any agent assigned to that job to execute the workflow. Alternatively, workflows can be assigned directly to agents for specific tasks.
+
+      ---
+
+      #### Usage
+
+      - You can create, update, and delete workflows through the `/rest/workflows` endpoint.
+      - **Steps** within the workflow define specific tasks or decision points for the agent to execute. After creating a workflow, you will need to associate the correct step IDs with it, defining how the agent will proceed through the process.
+      - Workflows are attached to **Jobs** or can be directly assigned to **Copilotz agents**, depending on how the task should be handled.
+
+      ---
+
+      #### Example of a Workflow in Action
+
+      Once a workflow is created, it can be assigned to a job or directly to an agent. Below is an example of how a workflow might be executed by a Copilotz agent during a customer registration process.
+
+      1. **Step 1: Collect User Information**
+        - The agent asks the user for their name and email address.
+        - If the user provides the required information, the workflow moves to the next step.
+
+      2. **Step 2: Confirm User Preferences**
+        - The agent asks the user for additional preferences (e.g., newsletter subscription).
+        - If the user submits the preferences, the workflow moves to the final step.
+
+      3. **Step 3: Complete Registration**
+        - The agent sends the collected information to the backend via an API request.
+        - Upon successful registration, the agent confirms the registration to the user and closes the workflow.
+
+      ---
+
+      #### Fields and Conditions
+
+      Each step within a workflow can include **conditions** that must be met before moving on to the next step. These conditions could be based on user input or a specific response from an external service. You can customize the steps in a workflow to ensure the agent follows the appropriate path.
+
+      ---
+
+      #### Key Use Cases
+
+      - **Customer Registration:** Automate the process of collecting user information and preferences, validating the data, and creating new user accounts.
+        
+      - **Task Management:** Define workflows to manage tasks like updating user records, managing subscriptions, or handling customer service inquiries.
+
+      - **Automated Conversations:** Guide the agent through a structured conversation with a user, ensuring that all required information is collected and processed in the correct order.
+
+      ---
+
+      #### Example of Workflow Assignment
+
+      After creating a workflow, it needs to be linked to a Copilotz agent or job. This can be done dynamically via API calls.
+
+      ```javascript
+      const createWorkflow = async (accessToken, workflowData) => {
+        const response = await fetch(`https://copilotz.com/rest/workflows`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(workflowData),
+        });
+
+        if (response.ok) {
+          const createdWorkflow = await response.json();
+          console.log("Workflow created successfully:", createdWorkflow);
+        } else {
+          const error = await response.json();
+          console.error("Failed to create workflow:", error.error.message);
+        }
+      };
+      ```
+
+      ---
+
+      #### Best Practices
+
+      - **Step Reusability:** Whenever possible, create reusable steps that can be applied across multiple workflows. This minimizes duplication and allows for more flexible and maintainable workflows.
+        
+      - **Testing with Allow Lists:** When testing workflows, especially in non-production environments, use the `allowList` property in channels to restrict who can interact with the workflow to ensure proper functionality before going live.

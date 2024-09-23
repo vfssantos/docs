@@ -1,0 +1,54 @@
+
+#### Purpose
+The **Actions** resource in Copilotz allows users to define specific operations that can be performed by agents during workflows. These actions represent tasks such as making API requests, triggering a function, or interacting with external services, and they follow the OpenAPI specification for flexibility and consistency.
+
+#### Resource Overview
+An **Action** defines what tasks or operations an agent can execute. These actions can either be natively handled by Copilotz or can point to a custom module URL for more advanced functionality.
+
+#### Key Concepts
+- **Action Name:** The name of the action, which should be descriptive and clear.
+- **Description:** A brief explanation of what the action does.
+- **Specification Type (specType):** Defines the format of the specification. Typically, this will be `openapi3-yaml` but can be extended for other formats.
+- **Module URL (moduleUrl):** The URL where the logic for the action is hosted. If you use `native:request`, Copilotz will handle the request natively.
+- **OpenAPI Spec (spec):** The OpenAPI 3.0 specification for the action, which defines the input, output, and expected behavior.
+
+---
+
+#### Example
+
+A typical **Action** would look like this:
+
+```json
+{
+    "name": "getWeather",
+    "description": "Fetches current weather data for a specified location.",
+    "specType": "openapi3-yaml",
+    "moduleUrl": "native:request",
+    "spec": "openapi: 3.0.0\ninfo:\n  title: Get Weather API\npaths:\n  /weather:\n    get:\n      summary: Get current weather\n      parameters:\n        - in: query\n          name: location\n          schema:\n            type: string\n          required: true\n          description: The location to get weather for.\n      responses:\n        '200':\n          description: Successful response\n          content:\n            application/json:\n              schema:\n                type: object\n                properties:\n                  temperature:\n                    type: number\n                  condition:\n                    type: string"
+}
+```
+
+---
+
+#### Fields
+
+- **name** (string) – The unique identifier for the action.
+- **description** (string) – A clear and concise explanation of what the action does.
+- **specType** (string) – The specification format, generally `openapi3-yaml`. This defines how the action is structured and interpreted.
+- **moduleUrl** (string) – The URL where the logic of the action is hosted. For basic API requests, `native:request` can be used. 
+- **spec** (string) – The OpenAPI specification that defines the action. This contains paths, methods, parameters, and responses, providing a structured format for executing the action.
+
+---
+
+#### Behavior
+
+- **Native Actions:** If the `moduleUrl` is set to `native:request`, Copilotz will handle the action internally, using the provided OpenAPI specification to make an HTTP request.
+    
+- **Custom Actions:** If the `moduleUrl` points to an external module, that URL will be invoked, and it will handle the operation. The user must provide their own implementation for this action. As Copilotz uses Deno runtime, `moduleUrl` can be any url containing a .js or .ts file, and it'll be dynamically loaded for being executed as an action when called by the agent.
+
+#### Usage
+
+- Actions are attached to **Copilotz agents**, either directly in the **Copilotz** resource, or by being attached to **Jobs** or **Steps** in a workflow. 
+    - In case it's attached to jobs, the actions available to copilotz will acumulate with the actions attached directly to the **Copilotz** resource (if any), when the Copilotz is at that job
+    - In case it's attached to a **Step**, it will only be available to the **Copilotz** once they are working on that particular step. Note that, in this case, you'd have to be using the **TaskManager Agent** provided by Copilotz.
+- Actions can be reused across multiple workflows, and are executed as part of workflow steps.
