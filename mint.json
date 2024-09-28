@@ -24,7 +24,8 @@
   ],
   "topbarCtaButton": {
     "name": "Dashboard",
-    "url": "https://copilotz.com"
+    "url": "https://copilotz.com",
+    "style":"roundedRectangle"
   },
   "tabs": [
     {
